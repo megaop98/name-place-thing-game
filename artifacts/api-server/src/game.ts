@@ -107,13 +107,18 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
         score: 0,
       });
 
+      const remainingMs =
+        state.countdownActive && state.countdownEndsAt
+          ? Math.max(0, state.countdownEndsAt - Date.now())
+          : null;
+
       socket.emit("joined", {
         playerId: socket.id,
         players: getPublicPlayers(),
         currentLetter: state.currentLetter,
         roundActive: state.roundActive,
         countdownActive: state.countdownActive,
-        countdownEndsAt: state.countdownEndsAt,
+        remainingMs,
         roundNumber: state.roundNumber,
         gameStarted: state.gameStarted,
       });
@@ -164,7 +169,7 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
         state.countdownEndsAt = endsAt;
 
         io.emit("countdown_started", {
-          endsAt,
+          remainingMs: 7000,
           triggeredBy: state.players.get(socket.id)?.name || "Someone",
         });
 

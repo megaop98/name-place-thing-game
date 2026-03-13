@@ -37,7 +37,6 @@ export default function App() {
   const [roundNumber, setRoundNumber] = useState(0);
   const [roundActive, setRoundActive] = useState(false);
   const [countdownActive, setCountdownActive] = useState(false);
-  const [countdownEndsAt, setCountdownEndsAt] = useState<number | null>(null);
   const [hasFinished, setHasFinished] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
 
@@ -63,10 +62,11 @@ export default function App() {
     notifTimer.current = setTimeout(() => setNotifVisible(false), 3500);
   }, []);
 
-  const runCountdown = useCallback((endsAt: number) => {
+  const runCountdown = useCallback((remainingMs: number) => {
     if (animFrame.current) cancelAnimationFrame(animFrame.current);
+    const localEnd = Date.now() + remainingMs;
     const tick = () => {
-      const remaining = Math.max(0, endsAt - Date.now());
+      const remaining = Math.max(0, localEnd - Date.now());
       setCountdownPct((remaining / 7000) * 100);
       setCountdownSec(Math.ceil(remaining / 1000));
       if (remaining > 0) animFrame.current = requestAnimationFrame(tick);
@@ -86,9 +86,8 @@ export default function App() {
       setGameStarted(data.gameStarted);
       setRoundNumber(data.roundNumber);
       if (data.currentLetter) setCurrentLetter(data.currentLetter);
-      if (data.countdownActive && data.countdownEndsAt) {
-        setCountdownEndsAt(data.countdownEndsAt);
-        runCountdown(data.countdownEndsAt);
+      if (data.countdownActive && data.remainingMs != null) {
+        runCountdown(data.remainingMs);
       }
       setScreen("lobby");
     });
@@ -110,10 +109,9 @@ export default function App() {
       showNotif(`✨ Round ${data.roundNumber} started! Letter: ${data.letter}`);
     });
 
-    socket.on("countdown_started", (data: { endsAt: number; triggeredBy: string }) => {
+    socket.on("countdown_started", (data: { remainingMs: number; triggeredBy: string }) => {
       setCountdownActive(true);
-      setCountdownEndsAt(data.endsAt);
-      runCountdown(data.endsAt);
+      runCountdown(data.remainingMs);
       showNotif(`⏱ ${data.triggeredBy} finished! 7 seconds remaining!`);
     });
 
@@ -267,19 +265,21 @@ export default function App() {
         </p>
 
         {screen === "join" && (
-          <div className="card" style={{ boxShadow: "0 0 16px #7a1fcc55" }}>
-            <div className="card-title">Join the Lobby</div>
-            <div style={{ display: "flex", gap: "0.7rem" }}>
-              <input
-                type="text"
-                placeholder="Enter your name..."
-                maxLength={20}
-                value={nameInput}
-                onChange={e => setNameInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && joinGame()}
-                style={{ flex: 1 }}
-              />
-              <button className="btn-primary" onClick={joinGame}>Join</button>
+          <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div className="card" style={{ boxShadow: "0 0 24px #7a1fcc66", width: "100%", maxWidth: 480 }}>
+              <div className="card-title">Join the Lobby</div>
+              <div style={{ display: "flex", gap: "0.7rem" }}>
+                <input
+                  type="text"
+                  placeholder="Enter your name..."
+                  maxLength={20}
+                  value={nameInput}
+                  onChange={e => setNameInput(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && joinGame()}
+                  style={{ flex: 1 }}
+                />
+                <button className="btn-primary" onClick={joinGame}>Join</button>
+              </div>
             </div>
           </div>
         )}
