@@ -16,6 +16,23 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Name, Place, Thing, Animal Game
+
+A real-time multiplayer word game built with Express + Socket.io (backend) and React + Vite (frontend).
+
+- Frontend: `artifacts/game/` — React app at `/`
+- Backend socket server: `artifacts/api-server/src/game.ts` — Socket.io server at `/api/socket.io`
+- Game HTML static fallback: `artifacts/api-server/public/index.html` (unused, React app is primary)
+
+### Game Features
+- Players join a lobby with a name
+- "Guess Alphabet" generates a random letter for all players
+- Players fill in Name, Place, Thing, Animal starting with that letter
+- First player to click "Finish Row" triggers a 7-second countdown for others
+- After 7 seconds, the round locks and scores are auto-calculated
+- Scoring: Unique = 10pts, 2 same = 5pts, 3+ same = 2.5pts
+- "Final Leaderboard" button shows rankings
+
 ## Structure
 
 ```text
