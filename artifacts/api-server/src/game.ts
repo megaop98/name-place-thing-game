@@ -50,40 +50,6 @@ function getPublicPlayers(): Array<{ id: string; name: string; score: number }> 
   }));
 }
 
-function calculateScores(): Map<string, number> {
-  const roundScores = new Map<string, number>();
-  const categories: (keyof Omit<RoundEntry, "finishedFirst">)[] = [
-    "name",
-    "place",
-    "thing",
-    "animal",
-  ];
-
-  for (const category of categories) {
-    const wordCounts = new Map<string, string[]>();
-
-    for (const [playerId, entry] of state.roundEntries) {
-      const word = (entry[category] || "").trim().toLowerCase();
-      if (!word) continue;
-      if (!wordCounts.has(word)) wordCounts.set(word, []);
-      wordCounts.get(word)!.push(playerId);
-    }
-
-    for (const [, playerIds] of wordCounts) {
-      let pts = 0;
-      if (playerIds.length === 1) pts = 10;
-      else if (playerIds.length === 2) pts = 5;
-      else pts = 2.5;
-
-      for (const pid of playerIds) {
-        roundScores.set(pid, (roundScores.get(pid) || 0) + pts);
-      }
-    }
-  }
-
-  return roundScores;
-}
-
 let countdownTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
@@ -194,6 +160,23 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
       state.roundEntries.set(socket.id, cleanEntry);
     });
 
+    // Manual scoring: any player can submit scores for the round
+    socket.on("submit_scores", (scores: Array<{ playerId: string; score: number }>) => {
+      if (!state.players.has(socket.id)) return;
+      if (!Array.isArray(scores)) return;
+
+      for (const { playerId, score } of scores) {
+        const player = state.players.get(playerId);
+        if (player && typeof score === "number" && score >= 0) {
+          player.score += score;
+        }
+      }
+
+      io.emit("scores_applied", {
+        players: getPublicPlayers(),
+      });
+    });
+
     socket.on("final_leaderboard", () => {
       if (!state.players.has(socket.id)) return;
       const sorted = getPublicPlayers().sort((a, b) => b.score - a.score);
@@ -216,13 +199,11 @@ function lockRound(io: SocketIOServer) {
   state.countdownActive = false;
   state.countdownEndsAt = null;
 
-  const roundScores = calculateScores();
-  const resultsData: Array<{
+  // Collect all entries — answers are preserved, no auto-scoring
+  const entriesData: Array<{
     playerId: string;
     playerName: string;
     entry: RoundEntry;
-    roundScore: number;
-    totalScore: number;
   }> = [];
 
   for (const [playerId, player] of state.players) {
@@ -232,20 +213,14 @@ function lockRound(io: SocketIOServer) {
       thing: "",
       animal: "",
     };
-    const roundScore = roundScores.get(playerId) || 0;
-    player.score += roundScore;
-
-    resultsData.push({
+    entriesData.push({
       playerId,
       playerName: player.name,
       entry,
-      roundScore,
-      totalScore: player.score,
     });
   }
 
-  io.emit("round_results", {
-    results: resultsData,
-    players: getPublicPlayers(),
+  io.emit("round_locked", {
+    entries: entriesData,
   });
 }

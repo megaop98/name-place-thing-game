@@ -17,12 +17,10 @@ interface RoundEntry {
   finishedFirst?: boolean;
 }
 
-interface RoundResult {
+interface LockedEntry {
   playerId: string;
   playerName: string;
   entry: RoundEntry;
-  roundScore: number;
-  totalScore: number;
 }
 
 type Screen = "join" | "lobby";
@@ -40,12 +38,18 @@ export default function App() {
   const [hasFinished, setHasFinished] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
 
+  // Current round answers (preserved after lock)
   const [ansName, setAnsName] = useState("");
   const [ansPlace, setAnsPlace] = useState("");
   const [ansThing, setAnsThing] = useState("");
   const [ansAnimal, setAnsAnimal] = useState("");
 
-  const [roundResults, setRoundResults] = useState<RoundResult[] | null>(null);
+  // After round is locked
+  const [lockedEntries, setLockedEntries] = useState<LockedEntry[] | null>(null);
+  // Manual score inputs: playerId -> score string
+  const [manualScores, setManualScores] = useState<Record<string, string>>({});
+  const [scoresSubmitted, setScoresSubmitted] = useState(false);
+
   const [leaderboard, setLeaderboard] = useState<Player[] | null>(null);
   const [notification, setNotification] = useState<string>("");
   const [notifVisible, setNotifVisible] = useState(false);
@@ -101,8 +105,11 @@ export default function App() {
       setGameStarted(true);
       setCurrentLetter(data.letter);
       setRoundNumber(data.roundNumber);
+      // Clear answers for new round
       setAnsName(""); setAnsPlace(""); setAnsThing(""); setAnsAnimal("");
-      setRoundResults(null);
+      setLockedEntries(null);
+      setManualScores({});
+      setScoresSubmitted(false);
       setLeaderboard(null);
       if (animFrame.current) cancelAnimationFrame(animFrame.current);
       setCountdownPct(100);
@@ -115,20 +122,27 @@ export default function App() {
       showNotif(`⏱ ${data.triggeredBy} finished! 7 seconds remaining!`);
     });
 
-    socket.on("round_results", (data: { results: RoundResult[]; players: Player[] }) => {
+    socket.on("round_locked", (data: { entries: LockedEntry[] }) => {
       setRoundActive(false);
       setCountdownActive(false);
       if (animFrame.current) cancelAnimationFrame(animFrame.current);
       setCountdownPct(100);
-      setRoundResults(data.results);
-      setPlayers(data.players);
-      setHasFinished(false);
-      showNotif("🎉 Round over! Scores updated!");
+      setLockedEntries(data.entries);
+      // Initialise manual scores to 0 for each player
+      const init: Record<string, string> = {};
+      for (const e of data.entries) init[e.playerId] = "0";
+      setManualScores(init);
+      setScoresSubmitted(false);
+      showNotif("🔒 Round locked! Enter scores manually.");
     });
 
-    socket.on("show_leaderboard", (p: Player[]) => {
-      setLeaderboard(p);
+    socket.on("scores_applied", (data: { players: Player[] }) => {
+      setPlayers(data.players);
+      setScoresSubmitted(true);
+      showNotif("✅ Scores saved!");
     });
+
+    socket.on("show_leaderboard", (p: Player[]) => setLeaderboard(p));
 
     socket.on("connect_error", () => showNotif("⚠️ Connection error. Retrying..."));
 
@@ -157,11 +171,18 @@ export default function App() {
     }
   };
 
+  const applyScores = () => {
+    const scores = Object.entries(manualScores).map(([playerId, val]) => ({
+      playerId,
+      score: parseFloat(val) || 0,
+    }));
+    socketRef.current?.emit("submit_scores", scores);
+  };
+
   const showLeaderboard = () => socketRef.current?.emit("final_leaderboard");
 
-  const inputsDisabled = !roundActive || hasFinished;
+  const inputsLocked = !roundActive || hasFinished;
   const canFinish = (roundActive || countdownActive) && !hasFinished;
-
   const rankIcons = ["🥇", "🥈", "🥉"];
 
   return (
@@ -197,6 +218,13 @@ export default function App() {
         }
         input[type=text]:focus { border-color: var(--purple); }
         input[type=text]:disabled { opacity: 0.45; cursor: not-allowed; }
+        input[type=number] {
+          background: var(--surface2); border: 1px solid var(--border);
+          border-radius: 6px; color: var(--cyan); font-size: 1rem;
+          font-weight: 700; padding: 0.4rem 0.5rem; outline: none;
+          width: 70px; text-align: center;
+        }
+        input[type=number]:focus { border-color: var(--purple); }
         button {
           border: none; border-radius: 8px; cursor: pointer;
           font-size: 0.9rem; font-weight: 700; letter-spacing: 0.02em;
@@ -209,6 +237,7 @@ export default function App() {
         .btn-cyan { background: linear-gradient(135deg,#0098aa,#00e5ff); color:#000; }
         .btn-green { background: linear-gradient(135deg,#00aa55,#00ff88); color:#000; }
         .btn-gold { background: linear-gradient(135deg,#aa8800,#ffd700); color:#000; }
+        .btn-purple { background: linear-gradient(135deg,#7a1fcc,#b44dff); color:#fff; }
         .card {
           background: var(--surface);
           border: 1px solid var(--border);
@@ -230,12 +259,8 @@ export default function App() {
         .game-table { width: 100%; border-collapse: collapse; }
         .game-table th { background: var(--surface2); border: 1px solid var(--border); color: var(--cyan); font-size: 0.74rem; padding: 0.5rem 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; }
         .game-table td { border: 1px solid var(--border); padding: 0.4rem 0.5rem; }
-        .game-table input { border: none; background: transparent; padding: 0.25rem 0.3rem; width: 100%; color: var(--text); font-size: 0.9rem; outline: none; }
-        .game-table input:focus { background: var(--surface2); border-radius: 4px; }
-        .res-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .res-table th { background: var(--surface2); border: 1px solid var(--border); color: var(--purple); padding: 0.5rem 0.6rem; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; text-align: left; }
-        .res-table td { border: 1px solid var(--border); padding: 0.5rem 0.6rem; }
-        .res-table tr:nth-child(even) td { background: #0e0e20; }
+        .game-table input[type=text] { border: none; background: transparent; padding: 0.25rem 0.3rem; border-radius: 0; }
+        .game-table input[type=text]:focus { background: var(--surface2); border-radius: 4px; }
         .lb-item { display:flex; align-items:center; gap:1rem; background: var(--surface2); border: 1px solid var(--border); border-radius:10px; padding: 0.85rem 1.1rem; margin-bottom:0.55rem; }
         .lb-me { border-color: var(--purple); }
         .notif {
@@ -248,44 +273,61 @@ export default function App() {
         .notif.show { transform: translateX(-50%) translateY(0); }
         .countdown-wrap { background: var(--surface2); border-radius: 999px; height: 9px; overflow: hidden; margin: 0.6rem 0; }
         .countdown-bar { height: 100%; background: linear-gradient(90deg,#ff4466,#b44dff); border-radius:999px; transition: width 0.1s linear; }
-        @media(max-width:600px){ .res-table { font-size: 0.75rem; } }
+        .score-row {
+          background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+          padding: 1rem 1.1rem; margin-bottom: 0.75rem;
+        }
+        .score-row.me { border-color: var(--purple); }
+        .answer-grid {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1rem;
+          margin: 0.6rem 0 0.8rem;
+        }
+        .answer-cell { font-size: 0.85rem; }
+        .answer-label { color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; }
+        .answer-value { color: var(--text); font-weight: 600; font-size: 0.92rem; }
+        .answer-value.empty { color: var(--text-dim); font-style: italic; font-weight: 400; }
+        .score-input-row { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
+        @media(max-width:500px){ .answer-grid { grid-template-columns: 1fr; } }
       `}</style>
 
       <div className={`notif${notifVisible ? " show" : ""}`}>{notification}</div>
 
       <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 1rem 3rem" }}>
+
+        {/* TITLE */}
         <h1 style={{
           textAlign: "center", fontSize: "clamp(1.4rem,4vw,2rem)", fontWeight: 900,
-          letterSpacing: "0.03em", padding: "1.4rem 1rem 0.4rem",
+          letterSpacing: "0.03em", padding: "1.2rem 1rem 0.3rem",
           background: "linear-gradient(90deg,#b44dff,#00e5ff)",
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"
         }}>Name, Place, Thing, Animal</h1>
-        <p style={{ textAlign: "center", color: "var(--text-dim)", fontSize: "0.85rem", marginBottom: "1.8rem" }}>
+        <p style={{ textAlign: "center", color: "var(--text-dim)", fontSize: "0.85rem", marginBottom: "1.2rem" }}>
           Real-time multiplayer word game
         </p>
 
+        {/* JOIN SCREEN */}
         {screen === "join" && (
-          <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div className="card" style={{ boxShadow: "0 0 24px #7a1fcc66", width: "100%", maxWidth: 480 }}>
-              <div className="card-title">Join the Lobby</div>
-              <div style={{ display: "flex", gap: "0.7rem" }}>
-                <input
-                  type="text"
-                  placeholder="Enter your name..."
-                  maxLength={20}
-                  value={nameInput}
-                  onChange={e => setNameInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && joinGame()}
-                  style={{ flex: 1 }}
-                />
-                <button className="btn-primary" onClick={joinGame}>Join</button>
-              </div>
+          <div className="card" style={{ boxShadow: "0 0 24px #7a1fcc66", maxWidth: 480, margin: "0 auto 0" }}>
+            <div className="card-title">Join the Lobby</div>
+            <div style={{ display: "flex", gap: "0.7rem" }}>
+              <input
+                type="text"
+                placeholder="Enter your name..."
+                maxLength={20}
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && joinGame()}
+                style={{ flex: 1 }}
+              />
+              <button className="btn-primary" onClick={joinGame}>Join</button>
             </div>
           </div>
         )}
 
+        {/* LOBBY */}
         {screen === "lobby" && (
           <>
+            {/* Players */}
             <div className="card">
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.9rem" }}>
                 <div className="card-title" style={{ margin: 0 }}>Players</div>
@@ -293,9 +335,10 @@ export default function App() {
                   background: countdownActive ? "#3a1a1a" : roundActive ? "#1a3a1a" : "var(--surface2)",
                   color: countdownActive ? "var(--red)" : roundActive ? "var(--green)" : "var(--text-dim)",
                   border: `1px solid ${countdownActive ? "var(--red)" : roundActive ? "var(--green)" : "var(--border)"}`,
-                  borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, padding: "0.2rem 0.6rem", textTransform: "uppercase"
+                  borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700,
+                  padding: "0.2rem 0.6rem", textTransform: "uppercase"
                 }}>
-                  {countdownActive ? "Countdown!" : roundActive ? "Round Active" : gameStarted ? "Between Rounds" : "Waiting"}
+                  {countdownActive ? "Countdown!" : roundActive ? "Round Active" : lockedEntries ? "Scoring" : gameStarted ? "Between Rounds" : "Waiting"}
                 </span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.55rem" }}>
@@ -308,6 +351,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* Game controls */}
             <div className="card" style={{ boxShadow: "0 0 16px #0098aa44" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
                 <div>
@@ -323,6 +367,7 @@ export default function App() {
                   <div style={{ color: "var(--text-dim)", fontSize: "0.82rem" }}>
                     {roundNumber > 0 ? `Round ${roundNumber}` : 'Press "Guess Alphabet" to start'}
                     {roundActive && !countdownActive && " — Fill in your answers!"}
+                    {lockedEntries && !roundActive && " — Enter scores below"}
                   </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
@@ -347,23 +392,21 @@ export default function App() {
               )}
             </div>
 
+            {/* Answer inputs */}
             <div className="card">
               <div className="card-title">Your Answers — Letter: {currentLetter || "?"}</div>
               <table className="game-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Place</th>
-                    <th>Thing</th>
-                    <th>Animal</th>
+                    <th>Name</th><th>Place</th><th>Thing</th><th>Animal</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><input type="text" placeholder="Name..." maxLength={50} value={ansName} onChange={e => setAnsName(e.target.value)} disabled={inputsDisabled} /></td>
-                    <td><input type="text" placeholder="Place..." maxLength={50} value={ansPlace} onChange={e => setAnsPlace(e.target.value)} disabled={inputsDisabled} /></td>
-                    <td><input type="text" placeholder="Thing..." maxLength={50} value={ansThing} onChange={e => setAnsThing(e.target.value)} disabled={inputsDisabled} /></td>
-                    <td><input type="text" placeholder="Animal..." maxLength={50} value={ansAnimal} onChange={e => setAnsAnimal(e.target.value)} disabled={inputsDisabled} /></td>
+                    <td><input type="text" placeholder="Name..." maxLength={50} value={ansName} onChange={e => setAnsName(e.target.value)} disabled={inputsLocked} /></td>
+                    <td><input type="text" placeholder="Place..." maxLength={50} value={ansPlace} onChange={e => setAnsPlace(e.target.value)} disabled={inputsLocked} /></td>
+                    <td><input type="text" placeholder="Thing..." maxLength={50} value={ansThing} onChange={e => setAnsThing(e.target.value)} disabled={inputsLocked} /></td>
+                    <td><input type="text" placeholder="Animal..." maxLength={50} value={ansAnimal} onChange={e => setAnsAnimal(e.target.value)} disabled={inputsLocked} /></td>
                   </tr>
                 </tbody>
               </table>
@@ -371,47 +414,78 @@ export default function App() {
                 <button className="btn-green" onClick={finishRow} disabled={!canFinish}>
                   {countdownActive && !hasFinished ? "⚡ Submit Now" : hasFinished ? "✅ Submitted" : "✅ Finish Row"}
                 </button>
-                {hasFinished && <span style={{ color: "var(--text-dim)", fontSize: "0.82rem" }}>Answers saved!</span>}
+                {hasFinished && !lockedEntries && (
+                  <span style={{ color: "var(--text-dim)", fontSize: "0.82rem" }}>Waiting for round to end...</span>
+                )}
+                {lockedEntries && (
+                  <span style={{ color: "var(--red)", fontSize: "0.82rem", fontWeight: 700 }}>🔒 Round locked</span>
+                )}
               </div>
             </div>
 
-            {roundResults && (
-              <div className="card">
-                <div className="card-title">Round Results</div>
-                <div style={{ overflowX: "auto" }}>
-                  <table className="res-table">
-                    <thead>
-                      <tr>
-                        <th>Player</th>
-                        <th>Name</th>
-                        <th>Place</th>
-                        <th>Thing</th>
-                        <th>Animal</th>
-                        <th style={{ color: "var(--green)" }}>Round +</th>
-                        <th style={{ color: "var(--cyan)" }}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {roundResults.map(r => (
-                        <tr key={r.playerId} style={r.playerId === myId ? { background: "rgba(180,77,255,0.07)" } : {}}>
-                          <td>
-                            {r.playerName}
-                            {r.playerId === myId && <span style={{ color: "var(--purple)", fontSize: "0.72rem" }}> (you)</span>}
-                          </td>
-                          <td>{r.entry.name || "—"}</td>
-                          <td>{r.entry.place || "—"}</td>
-                          <td>{r.entry.thing || "—"}</td>
-                          <td>{r.entry.animal || "—"}</td>
-                          <td style={{ color: "var(--green)", fontWeight: 700 }}>+{r.roundScore}</td>
-                          <td style={{ color: "var(--cyan)", fontWeight: 700 }}>{r.totalScore}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {/* MANUAL SCORING PANEL */}
+            {lockedEntries && (
+              <div className="card" style={{ border: "1px solid var(--purple)", boxShadow: "0 0 16px #7a1fcc44" }}>
+                <div className="card-title" style={{ color: "var(--purple)" }}>
+                  ✏️ Manual Scoring — Enter Points for Each Player
+                </div>
+                <p style={{ color: "var(--text-dim)", fontSize: "0.8rem", marginBottom: "1rem" }}>
+                  Review each player's answers below and enter their score for this round. Anyone can enter and apply scores.
+                </p>
+
+                {lockedEntries.map(({ playerId, playerName, entry }) => {
+                  const isMe = playerId === myId;
+                  return (
+                    <div key={playerId} className={`score-row${isMe ? " me" : ""}`}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+                        <div style={{ fontWeight: 700, fontSize: "1rem" }}>
+                          {playerName}
+                          {isMe && <span style={{ color: "var(--purple)", fontSize: "0.75rem", marginLeft: "0.4rem" }}>(you)</span>}
+                        </div>
+                      </div>
+
+                      <div className="answer-grid">
+                        {(["name", "place", "thing", "animal"] as const).map(cat => (
+                          <div key={cat} className="answer-cell">
+                            <div className="answer-label">{cat}</div>
+                            <div className={`answer-value${!entry[cat] ? " empty" : ""}`}>
+                              {entry[cat] || "—"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="score-input-row">
+                        <span style={{ color: "var(--text-dim)", fontSize: "0.82rem" }}>Score for this round:</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={999}
+                          step={0.5}
+                          value={manualScores[playerId] ?? "0"}
+                          onChange={e => setManualScores(prev => ({ ...prev, [playerId]: e.target.value }))}
+                          disabled={scoresSubmitted}
+                        />
+                        <span style={{ color: "var(--cyan)", fontSize: "0.8rem" }}>pts</span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "0.5rem" }}>
+                  <button className="btn-purple" onClick={applyScores} disabled={scoresSubmitted}>
+                    {scoresSubmitted ? "✅ Scores Applied" : "💾 Apply Scores"}
+                  </button>
+                  {scoresSubmitted && (
+                    <button className="btn-cyan" style={{ fontSize: "0.8rem" }} onClick={() => setScoresSubmitted(false)}>
+                      ✏️ Edit Scores
+                    </button>
+                  )}
                 </div>
               </div>
             )}
 
+            {/* LEADERBOARD */}
             {leaderboard && (
               <div className="card">
                 <div className="card-title">🏆 Final Leaderboard</div>
