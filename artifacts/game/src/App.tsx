@@ -292,22 +292,97 @@ export default function App() {
 
       <div className={`notif${notifVisible ? " show" : ""}`}>{notification}</div>
 
-      <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 1rem 3rem" }}>
+      {/* JOIN SCREEN — full-height centred */}
+      {screen === "join" && (
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "1.5rem 1rem" }}>
 
-        {/* TITLE */}
-        <h1 style={{
-          textAlign: "center", fontSize: "clamp(1.4rem,4vw,2rem)", fontWeight: 900,
-          letterSpacing: "0.03em", padding: "1.2rem 1rem 0.3rem",
-          background: "linear-gradient(90deg,#b44dff,#00e5ff)",
-          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"
-        }}>Name, Place, Thing, Animal</h1>
-        <p style={{ textAlign: "center", color: "var(--text-dim)", fontSize: "0.85rem", marginBottom: "1.2rem" }}>
-          Real-time multiplayer word game
-        </p>
+          {/* Title */}
+          <h1 style={{
+            textAlign: "center", fontSize: "clamp(1.6rem,5vw,2.4rem)", fontWeight: 900,
+            letterSpacing: "0.03em", marginBottom: "0.3rem",
+            background: "linear-gradient(90deg,#b44dff,#00e5ff)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"
+          }}>Name, Place, Thing, Animal</h1>
+          <p style={{ textAlign: "center", color: "var(--text-dim)", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
+            Real-time multiplayer word game
+          </p>
 
-        {/* JOIN SCREEN */}
-        {screen === "join" && (
-          <div className="card" style={{ boxShadow: "0 0 24px #7a1fcc66", maxWidth: 480, margin: "0 auto 0" }}>
+          {/* Cartoon illustration */}
+          <svg width="320" height="200" viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style={{ maxWidth: "100%", marginBottom: "1.5rem" }}>
+            {/* Glow blobs */}
+            <ellipse cx="80" cy="110" rx="60" ry="40" fill="#b44dff" opacity="0.08"/>
+            <ellipse cx="240" cy="90" rx="60" ry="40" fill="#00e5ff" opacity="0.08"/>
+            <ellipse cx="160" cy="150" rx="50" ry="30" fill="#00ff88" opacity="0.06"/>
+
+            {/* Stars */}
+            <text x="18" y="28" fontSize="14" fill="#b44dff" opacity="0.9">✦</text>
+            <text x="290" y="40" fontSize="12" fill="#00e5ff" opacity="0.9">✦</text>
+            <text x="8" y="160" fontSize="10" fill="#00ff88" opacity="0.8">★</text>
+            <text x="300" y="170" fontSize="10" fill="#b44dff" opacity="0.8">★</text>
+            <text x="155" y="18" fontSize="8" fill="#00e5ff" opacity="0.7">✦</text>
+            <text x="260" y="185" fontSize="9" fill="#00ff88" opacity="0.7">✦</text>
+
+            {/* Card: NAME — top-left, purple */}
+            <rect x="8" y="42" width="120" height="72" rx="14" fill="#1a1038" stroke="#b44dff" strokeWidth="2.5"/>
+            <rect x="8" y="42" width="120" height="72" rx="14" fill="url(#glow-purple)" opacity="0.15"/>
+            {/* Person icon */}
+            <circle cx="38" cy="68" r="10" fill="none" stroke="#b44dff" strokeWidth="2"/>
+            <path d="M22 98 Q38 84 54 98" fill="none" stroke="#b44dff" strokeWidth="2" strokeLinecap="round"/>
+            {/* Label */}
+            <text x="60" y="72" fontSize="15" fontWeight="800" fill="#b44dff" fontFamily="system-ui">NAME</text>
+            <text x="60" y="90" fontSize="10" fill="#8888bb" fontFamily="system-ui">👤 People</text>
+
+            {/* Card: PLACE — top-right, cyan */}
+            <rect x="192" y="42" width="120" height="72" rx="14" fill="#001a20" stroke="#00e5ff" strokeWidth="2.5"/>
+            {/* Map pin icon */}
+            <circle cx="222" cy="66" r="10" fill="none" stroke="#00e5ff" strokeWidth="2"/>
+            <path d="M222 76 L222 93" stroke="#00e5ff" strokeWidth="2" strokeLinecap="round"/>
+            <circle cx="222" cy="66" r="4" fill="#00e5ff"/>
+            {/* Label */}
+            <text x="240" y="72" fontSize="15" fontWeight="800" fill="#00e5ff" fontFamily="system-ui">PLACE</text>
+            <text x="240" y="90" fontSize="10" fill="#8888bb" fontFamily="system-ui">🗺️ Cities</text>
+
+            {/* Card: ANIMAL — bottom-left, green */}
+            <rect x="8" y="126" width="120" height="66" rx="14" fill="#001a10" stroke="#00ff88" strokeWidth="2.5"/>
+            {/* Paw icon */}
+            <circle cx="33" cy="148" r="7" fill="none" stroke="#00ff88" strokeWidth="2"/>
+            <circle cx="24" cy="141" r="3.5" fill="#00ff88" opacity="0.7"/>
+            <circle cx="42" cy="141" r="3.5" fill="#00ff88" opacity="0.7"/>
+            <circle cx="34" cy="139" r="3" fill="#00ff88" opacity="0.7"/>
+            {/* Label */}
+            <text x="50" y="152" fontSize="14" fontWeight="800" fill="#00ff88" fontFamily="system-ui">ANIMAL</text>
+            <text x="50" y="168" fontSize="10" fill="#8888bb" fontFamily="system-ui">🐾 Creatures</text>
+
+            {/* Card: THING — bottom-right, pink */}
+            <rect x="192" y="126" width="120" height="66" rx="14" fill="#200010" stroke="#ff77cc" strokeWidth="2.5"/>
+            {/* Lightbulb icon */}
+            <circle cx="222" cy="148" r="9" fill="none" stroke="#ff77cc" strokeWidth="2"/>
+            <path d="M218 157 L226 157 M219 161 L225 161" stroke="#ff77cc" strokeWidth="1.8" strokeLinecap="round"/>
+            <path d="M222 139 L222 135" stroke="#ff77cc" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M215 142 L212 139" stroke="#ff77cc" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M229 142 L232 139" stroke="#ff77cc" strokeWidth="1.5" strokeLinecap="round"/>
+            {/* Label */}
+            <text x="240" y="152" fontSize="14" fontWeight="800" fill="#ff77cc" fontFamily="system-ui">THING</text>
+            <text x="240" y="168" fontSize="10" fill="#8888bb" fontFamily="system-ui">💡 Objects</text>
+
+            {/* Centre letter tile */}
+            <rect x="134" y="78" width="52" height="52" rx="12" fill="#13132b" stroke="#b44dff" strokeWidth="2.5" strokeDasharray="5 3"/>
+            <text x="160" y="112" fontSize="32" fontWeight="900" textAnchor="middle" fill="url(#letter-grad)" fontFamily="system-ui">A</text>
+
+            <defs>
+              <linearGradient id="glow-purple" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#b44dff"/>
+                <stop offset="100%" stopColor="#00e5ff"/>
+              </linearGradient>
+              <linearGradient id="letter-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#b44dff"/>
+                <stop offset="100%" stopColor="#00e5ff"/>
+              </linearGradient>
+            </defs>
+          </svg>
+
+          {/* Join card */}
+          <div className="card" style={{ boxShadow: "0 0 24px #7a1fcc66", width: "100%", maxWidth: 420 }}>
             <div className="card-title">Join the Lobby</div>
             <div style={{ display: "flex", gap: "0.7rem" }}>
               <input
@@ -322,6 +397,24 @@ export default function App() {
               <button className="btn-primary" onClick={joinGame}>Join</button>
             </div>
           </div>
+        </div>
+      )}
+
+      <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 1rem 3rem" }}>
+
+        {/* LOBBY TITLE (shown only in lobby) */}
+        {screen === "lobby" && (
+          <>
+          <h1 style={{
+            textAlign: "center", fontSize: "clamp(1.2rem,4vw,1.8rem)", fontWeight: 900,
+            letterSpacing: "0.03em", padding: "1.2rem 1rem 0.3rem",
+            background: "linear-gradient(90deg,#b44dff,#00e5ff)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"
+          }}>Name, Place, Thing, Animal</h1>
+          <p style={{ textAlign: "center", color: "var(--text-dim)", fontSize: "0.82rem", marginBottom: "1rem" }}>
+            Real-time multiplayer word game
+          </p>
+          </>
         )}
 
         {/* LOBBY */}
