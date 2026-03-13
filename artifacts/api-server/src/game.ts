@@ -18,6 +18,7 @@ interface RoundEntry {
 
 interface GameState {
   players: Map<string, Player>;
+  adminId: string | null;
   currentLetter: string | null;
   roundActive: boolean;
   countdownActive: boolean;
@@ -32,6 +33,7 @@ const ALPHABET = "ABCDEFGHIJKLMNOPRSTW";
 
 const state: GameState = {
   players: new Map(),
+  adminId: null,
   currentLetter: null,
   roundActive: false,
   countdownActive: false,
@@ -67,6 +69,12 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
       const playerName = name.trim().slice(0, 20);
       if (!playerName) return;
 
+      // First player to join becomes admin
+      const isFirstPlayer = state.players.size === 0;
+      if (isFirstPlayer) {
+        state.adminId = socket.id;
+      }
+
       state.players.set(socket.id, {
         id: socket.id,
         name: playerName,
@@ -87,9 +95,13 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
         remainingMs,
         roundNumber: state.roundNumber,
         gameStarted: state.gameStarted,
+        isAdmin: socket.id === state.adminId,
+        adminId: state.adminId,
       });
 
+      // Tell everyone about the new admin (in case it changed)
       io.emit("players_update", getPublicPlayers());
+      io.emit("admin_update", { adminId: state.adminId });
     });
 
     socket.on("guess_alphabet", () => {
@@ -145,6 +157,7 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
       }
     });
 
+    // Players can submit/update their entry during countdown
     socket.on("submit_entry", (entry: RoundEntry) => {
       if (!state.players.has(socket.id)) return;
       if (!state.countdownActive) return;
@@ -160,9 +173,10 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
       state.roundEntries.set(socket.id, cleanEntry);
     });
 
-    // Manual scoring: any player can submit scores for the round
+    // Only admin can submit scores
     socket.on("submit_scores", (scores: Array<{ playerId: string; score: number }>) => {
       if (!state.players.has(socket.id)) return;
+      if (socket.id !== state.adminId) return;
       if (!Array.isArray(scores)) return;
 
       for (const { playerId, score } of scores) {
@@ -186,6 +200,14 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
     socket.on("disconnect", () => {
       state.players.delete(socket.id);
       state.roundEntries.delete(socket.id);
+
+      // If admin left, promote the next player
+      if (socket.id === state.adminId) {
+        const nextPlayer = state.players.keys().next().value;
+        state.adminId = nextPlayer || null;
+        io.emit("admin_update", { adminId: state.adminId });
+      }
+
       io.emit("players_update", getPublicPlayers());
       console.log("Socket disconnected:", socket.id);
     });
@@ -199,7 +221,6 @@ function lockRound(io: SocketIOServer) {
   state.countdownActive = false;
   state.countdownEndsAt = null;
 
-  // Collect all entries — answers are preserved, no auto-scoring
   const entriesData: Array<{
     playerId: string;
     playerName: string;
