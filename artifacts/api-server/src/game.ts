@@ -27,6 +27,8 @@ interface GameState {
   roundNumber: number;
   firstFinisher: string | null;
   gameStarted: boolean;
+  // Grace period: accept submit_entry up to this timestamp even after lock
+  acceptEntriesUntil: number;
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNOPRSTW";
@@ -42,9 +44,10 @@ const state: GameState = {
   roundNumber: 0,
   firstFinisher: null,
   gameStarted: false,
+  acceptEntriesUntil: 0,
 };
 
-function getPublicPlayers(): Array<{ id: string; name: string; score: number }> {
+function getPublicPlayers() {
   return Array.from(state.players.values()).map((p) => ({
     id: p.id,
     name: p.name,
@@ -53,6 +56,7 @@ function getPublicPlayers(): Array<{ id: string; name: string; score: number }> 
 }
 
 let countdownTimer: ReturnType<typeof setTimeout> | null = null;
+let submitRequestTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
   const httpServer = createServer(app);
@@ -69,17 +73,10 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
       const playerName = name.trim().slice(0, 20);
       if (!playerName) return;
 
-      // First player to join becomes admin
       const isFirstPlayer = state.players.size === 0;
-      if (isFirstPlayer) {
-        state.adminId = socket.id;
-      }
+      if (isFirstPlayer) state.adminId = socket.id;
 
-      state.players.set(socket.id, {
-        id: socket.id,
-        name: playerName,
-        score: 0,
-      });
+      state.players.set(socket.id, { id: socket.id, name: playerName, score: 0 });
 
       const remainingMs =
         state.countdownActive && state.countdownEndsAt
@@ -99,7 +96,6 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
         adminId: state.adminId,
       });
 
-      // Tell everyone about the new admin (in case it changed)
       io.emit("players_update", getPublicPlayers());
       io.emit("admin_update", { adminId: state.adminId });
     });
@@ -116,23 +112,14 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
       state.roundNumber += 1;
       state.gameStarted = true;
 
-      io.emit("round_started", {
-        letter,
-        roundNumber: state.roundNumber,
-      });
+      io.emit("round_started", { letter, roundNumber: state.roundNumber });
     });
 
     socket.on("finish_row", (entry: RoundEntry) => {
       if (!state.players.has(socket.id)) return;
       if (!state.roundActive || state.countdownActive) return;
 
-      const cleanEntry: RoundEntry = {
-        name: (entry.name || "").trim().slice(0, 50),
-        place: (entry.place || "").trim().slice(0, 50),
-        thing: (entry.thing || "").trim().slice(0, 50),
-        animal: (entry.animal || "").trim().slice(0, 50),
-        finishedFirst: false,
-      };
+      const cleanEntry = sanitise(entry);
 
       if (!state.firstFinisher) {
         state.firstFinisher = socket.id;
@@ -141,35 +128,38 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
 
       state.roundEntries.set(socket.id, cleanEntry);
 
-      if (!state.countdownActive) {
-        state.countdownActive = true;
-        const endsAt = Date.now() + 7000;
-        state.countdownEndsAt = endsAt;
+      // Start countdown
+      state.countdownActive = true;
+      const endsAt = Date.now() + 7000;
+      state.countdownEndsAt = endsAt;
 
-        io.emit("countdown_started", {
-          remainingMs: 7000,
-          triggeredBy: state.players.get(socket.id)?.name || "Someone",
-        });
+      // Tell all clients to submit their current answers immediately
+      io.emit("request_submit_now");
 
-        countdownTimer = setTimeout(() => {
-          lockRound(io);
-        }, 7000);
-      }
+      io.emit("countdown_started", {
+        remainingMs: 7000,
+        triggeredBy: state.players.get(socket.id)?.name || "Someone",
+      });
+
+      // At 5.5 seconds, remind clients to submit again (catches slow typers)
+      submitRequestTimer = setTimeout(() => {
+        io.emit("request_submit_now");
+      }, 5500);
+
+      // Lock 500ms after the visual countdown ends to absorb network latency
+      countdownTimer = setTimeout(() => {
+        lockRound(io);
+      }, 7500);
     });
 
-    // Players can submit/update their entry during countdown
+    // Accept entries during countdown OR within the grace window after lock
     socket.on("submit_entry", (entry: RoundEntry) => {
       if (!state.players.has(socket.id)) return;
-      if (!state.countdownActive) return;
+      const withinGrace = Date.now() <= state.acceptEntriesUntil;
+      if (!state.countdownActive && !withinGrace) return;
 
-      const cleanEntry: RoundEntry = {
-        name: (entry.name || "").trim().slice(0, 50),
-        place: (entry.place || "").trim().slice(0, 50),
-        thing: (entry.thing || "").trim().slice(0, 50),
-        animal: (entry.animal || "").trim().slice(0, 50),
-        finishedFirst: state.roundEntries.get(socket.id)?.finishedFirst || false,
-      };
-
+      const cleanEntry = sanitise(entry);
+      cleanEntry.finishedFirst = state.roundEntries.get(socket.id)?.finishedFirst || false;
       state.roundEntries.set(socket.id, cleanEntry);
     });
 
@@ -186,9 +176,7 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
         }
       }
 
-      io.emit("scores_applied", {
-        players: getPublicPlayers(),
-      });
+      io.emit("scores_applied", { players: getPublicPlayers() });
     });
 
     socket.on("final_leaderboard", () => {
@@ -201,10 +189,9 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
       state.players.delete(socket.id);
       state.roundEntries.delete(socket.id);
 
-      // If admin left, promote the next player
       if (socket.id === state.adminId) {
-        const nextPlayer = state.players.keys().next().value;
-        state.adminId = nextPlayer || null;
+        const next = state.players.keys().next().value;
+        state.adminId = next || null;
         io.emit("admin_update", { adminId: state.adminId });
       }
 
@@ -216,32 +203,32 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
   return httpServer;
 }
 
+function sanitise(entry: RoundEntry): RoundEntry {
+  return {
+    name:   (entry.name   || "").trim().slice(0, 50),
+    place:  (entry.place  || "").trim().slice(0, 50),
+    thing:  (entry.thing  || "").trim().slice(0, 50),
+    animal: (entry.animal || "").trim().slice(0, 50),
+    finishedFirst: false,
+  };
+}
+
 function lockRound(io: SocketIOServer) {
+  if (submitRequestTimer) { clearTimeout(submitRequestTimer); submitRequestTimer = null; }
+
   state.roundActive = false;
   state.countdownActive = false;
   state.countdownEndsAt = null;
+  // Accept any stragglers for 1.5 seconds after lock
+  state.acceptEntriesUntil = Date.now() + 1500;
 
-  const entriesData: Array<{
-    playerId: string;
-    playerName: string;
-    entry: RoundEntry;
-  }> = [];
-
+  const entriesData = [];
   for (const [playerId, player] of state.players) {
     const entry = state.roundEntries.get(playerId) || {
-      name: "",
-      place: "",
-      thing: "",
-      animal: "",
+      name: "", place: "", thing: "", animal: "",
     };
-    entriesData.push({
-      playerId,
-      playerName: player.name,
-      entry,
-    });
+    entriesData.push({ playerId, playerName: player.name, entry });
   }
 
-  io.emit("round_locked", {
-    entries: entriesData,
-  });
+  io.emit("round_locked", { entries: entriesData });
 }

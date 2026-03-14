@@ -162,6 +162,15 @@ export default function App() {
       setCountdownActive(true);
       runCountdown(data.remainingMs);
       showNotif(`⏱ ${data.triggeredBy} finished! 7 seconds remaining!`);
+      // Immediately send whatever is typed so far — no button press needed
+      const a = answersRef.current;
+      socket.emit("submit_entry", { name: a.name, place: a.place, thing: a.thing, animal: a.animal });
+    });
+
+    // Server asking all clients to send their current answers (fired at start + 5.5s)
+    socket.on("request_submit_now", () => {
+      const a = answersRef.current;
+      socket.emit("submit_entry", { name: a.name, place: a.place, thing: a.thing, animal: a.animal });
     });
 
     socket.on("round_locked", (data: { entries: LockedEntry[] }) => {
