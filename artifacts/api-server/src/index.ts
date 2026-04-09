@@ -1,7 +1,7 @@
 import app from "./app";
 import { setupSocketIO } from "./game";
 
-const port = Number(process.env.PORT) || 3000;
+const port = Number(process.env.PORT) || 7860;
 
 const httpServer = setupSocketIO(app);
 
