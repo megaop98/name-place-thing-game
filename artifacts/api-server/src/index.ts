@@ -10,10 +10,10 @@ const __dirname = path.dirname(__filename);
 const port = Number(process.env.PORT) || 7860;
 
 const frontendPath = path.resolve(__dirname, "../../game/dist");
+
 app.use(express.static(frontendPath));
 
-// In Express 5, wildcards MUST be named (e.g., :path*)
-app.get('/:path*', (req, res, next) => {
+app.use((req, res, next) => {
     if (req.path.startsWith('/api')) {
         return next();
     }
