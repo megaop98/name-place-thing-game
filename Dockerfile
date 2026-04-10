@@ -16,4 +16,5 @@ RUN PORT=7860 BASE_PATH=/ pnpm run build
 
 EXPOSE 7860
 
-CMD ["node", "artifacts/api-server/dist/index.js"]
+# This is the new direct start command
+CMD ["pnpm", "--filter", "@workspace/api-server", "start"]
