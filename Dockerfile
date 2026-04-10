@@ -16,4 +16,4 @@ RUN PORT=7860 BASE_PATH=/ pnpm run build
 
 EXPOSE 7860
 
-CMD ["pnpm", "start"]
+CMD ["node", "artifacts/api-server/dist/index.js"]
