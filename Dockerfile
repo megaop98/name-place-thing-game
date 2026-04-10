@@ -1,21 +1,22 @@
 FROM node:20
 
-# Install pnpm globally so the server can use it
+# 1. Install pnpm
 RUN npm install -g pnpm
 
 WORKDIR /app
 
-# Copy all files (including pnpm-lock.yaml and workspace files)
+# 2. Set the PORT right now (Crucial for the Vite build)
+ENV PORT=7860
+ENV NODE_ENV=production
+
+# 3. Copy files
 COPY . .
 
-# Install dependencies using pnpm
+# 4. Install and Build
 RUN pnpm install
-
-# Build the project
 RUN pnpm run build
 
 EXPOSE 7860
-ENV PORT=7860
 
-# Use pnpm to start the game
+# 5. Start
 CMD ["pnpm", "start"]
