@@ -1,27 +1,5 @@
-name: Sync to Hugging Face Hub
-on:
-  push:
-    branches: [master]
-  workflow_dispatch:
-
-jobs:
-  sync-to-hub:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Push to hub
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          git config --global user.email "saim@example.com"
-          git config --global user.name "Saim"
-          # Create a new branch with NO history
-          git checkout --orphan temp_sync
-          git add .
-          # Remove the sync script itself from the HF side
-          git rm -rf --cached .github/ || true
-          git commit -m "Clean deploy"
-          # Force push as 'main' to Hugging Face
-          git push -f https://SBD99:$HF_TOKEN@huggingface.co/spaces/SBD99/SBDgame temp_sync:main
+- uses: huggingface/hub-sync@v0.1.0
+  with:
+    github_repo_id: megaop98/name-place-thing-game
+    huggingface_repo_id: megaop98/name-place-thing-game  # Make sure this matches your actual HF Space name
+    hf_token: ${{ secrets.HF_TOKEN }}
