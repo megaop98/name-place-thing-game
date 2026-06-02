@@ -1,3 +1,17 @@
+---
+title: Name Place Thing Game
+emoji: 🎮
+colorFrom: purple
+colorTo: cyans
+sdk: docker
+app_port: 3000
+pinned: false
+---
+
+# 🎮 Real-Time Multiplayer: Name, Place, Thing, Animal
+... [Rest of your README content continues here] ...
+
+
 # 🎮 Real-Time Multiplayer: Name, Place, Thing, Animal
 
 A modern, web-based, real-time multiplayer adaptation of the classic childhood word game. Built using a decoupled client-server architecture, this application supports synchronized state management across multiple concurrent clients using WebSockets.
