@@ -1,5 +1,20 @@
-- uses: huggingface/hub-sync@v0.1.0
-  with:
-    github_repo_id: megaop98/name-place-thing-game
-    huggingface_repo_id: megaop98/name-place-thing-game  # Make sure this matches your actual HF Space name
-    hf_token: ${{ secrets.HF_TOKEN }}
+name: Sync to Hugging Face Hub
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - uses: huggingface/hub-sync@v0.1.0
+        with:
+          github_repo_id: megaop98/name-place-thing-game
+          huggingface_repo_id: SBD99/sbdgame
+          hf_token: ${{ secrets.HF_TOKEN }}
