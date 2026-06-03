@@ -2,7 +2,7 @@
 title: Name Place Thing Game
 emoji: 🎮
 colorFrom: purple
-colorTo: cyans
+colorTo: blue
 sdk: docker
 app_port: 3000
 pinned: false
