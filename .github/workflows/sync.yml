@@ -3,18 +3,17 @@ name: Sync to Hugging Face Hub
 on:
   push:
     branches: [master]
+  workflow_dispatch:
 
 jobs:
-  sync:
+  sync-to-hub:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           lfs: true
-
-      - uses: huggingface/hub-sync@v0.1.0
-        with:
-          github_repo_id: megaop98/name-place-thing-game
-          huggingface_repo_id: SBD99/sbdgame
-          hf_token: ${{ secrets.HF_TOKEN }}
+      - name: Push to hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: git push --force https://SBD99:$HF_TOKEN@huggingface.co/spaces/SBD99/sbdgame master:main
