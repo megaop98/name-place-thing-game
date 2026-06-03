@@ -1,13 +1,20 @@
 FROM node:18
 
-WORKDIR /app
+RUN useradd -m -u 1000 user
+USER user
 
-COPY package*.json ./
+ENV HOME=/home/user
+ENV PATH=/home/user/.local/bin:$PATH
+
+WORKDIR $HOME/app
+
+COPY --chown=user package*.json ./
 
 RUN npm install
 
-COPY . .
+COPY --chown=user . .
 
-EXPOSE 3000
+ENV PORT=7860
+EXPOSE 7860
 
-CMD ["node", "server.js"]
+CMD ["npm", "start"]
