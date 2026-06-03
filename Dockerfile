@@ -1,20 +1,21 @@
-FROM node:18
+FROM node:20
 
-RUN useradd -m -u 1000 user
-USER user
+RUN npm install -g pnpm
 
-ENV HOME=/home/user
-ENV PATH=/home/user/.local/bin:$PATH
-
-WORKDIR $HOME/app
-
-COPY --chown=user package*.json ./
-
-RUN npm install
-
-COPY --chown=user . .
+WORKDIR /home/node/app
 
 ENV PORT=7860
+ENV BASE_PATH=/
+ENV NODE_ENV=production
+
+COPY --chown=node:node . .
+
+USER node
+
+RUN pnpm install
+
+RUN PORT=7860 BASE_PATH=/ pnpm run build
+
 EXPOSE 7860
 
-CMD ["npm", "start"]
+CMD ["pnpm", "--filter", "@workspace/api-server", "start"]
