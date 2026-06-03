@@ -2,6 +2,8 @@ FROM node:20
 
 RUN npm install -g pnpm
 
+RUN mkdir -p /home/node/app && chown -R node:node /home/node
+
 WORKDIR /home/node/app
 
 ENV PORT=7860
