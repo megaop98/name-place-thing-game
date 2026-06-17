@@ -1,6 +1,6 @@
 FROM node:20
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm tsx
 
 RUN mkdir -p /home/node/app && chown -R node:node /home/node
 
@@ -20,4 +20,4 @@ RUN PORT=7860 BASE_PATH=/ pnpm run build
 
 EXPOSE 7860
 
-CMD ["node", "--import", "tsx", "artifacts/api-server/src/index.ts"]
+CMD ["tsx", "artifacts/api-server/src/index.ts"]
