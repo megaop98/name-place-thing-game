@@ -20,4 +20,4 @@ RUN PORT=7860 BASE_PATH=/ pnpm run build
 
 EXPOSE 7860
 
-CMD ["pnpm", "--filter", "@workspace/api-server", "start"]
+CMD ["node", "--import", "tsx", "artifacts/api-server/src/index.ts"]
