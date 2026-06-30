@@ -38,25 +38,24 @@ export default function App() {
   const [hasFinished, setHasFinished] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
 
-  // Admin state
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminId, setAdminId] = useState<string | null>(null);
 
-  // Answers — kept in both state (for rendering) and a ref (for callbacks that need current value)
+  const [joinStatus, setJoinStatus] = useState<"idle" | "waiting" | "rejected">("idle");
+  const [pendingRequests, setPendingRequests] = useState<{requestId: string, username: string}[]>([]);
+
   const [ansName, setAnsName] = useState("");
   const [ansPlace, setAnsPlace] = useState("");
   const [ansThing, setAnsThing] = useState("");
   const [ansAnimal, setAnsAnimal] = useState("");
-  // Mirror answers in a ref so countdown callback always sees the latest values
+  
   const answersRef = useRef({ name: "", place: "", thing: "", animal: "" });
 
-  // Helpers to update both state and ref together
   const updateAnsName   = (v: string) => { setAnsName(v);   answersRef.current.name   = v; };
   const updateAnsPlace  = (v: string) => { setAnsPlace(v);  answersRef.current.place  = v; };
   const updateAnsThing  = (v: string) => { setAnsThing(v);  answersRef.current.thing  = v; };
   const updateAnsAnimal = (v: string) => { setAnsAnimal(v); answersRef.current.animal = v; };
 
-  // After round is locked
   const [lockedEntries, setLockedEntries] = useState<LockedEntry[] | null>(null);
   const [manualScores, setManualScores] = useState<Record<string, string>>({});
   const [scoresSubmitted, setScoresSubmitted] = useState(false);
@@ -70,7 +69,6 @@ export default function App() {
   const [countdownSec, setCountdownSec] = useState(7);
   const animFrame = useRef<number | null>(null);
 
-  // Track whether we're currently in a countdown so the auto-submit fires only once
   const autoSubmittedRef = useRef(false);
   const myIdRef = useRef<string | null>(null);
 
@@ -81,7 +79,6 @@ export default function App() {
     notifTimer.current = setTimeout(() => setNotifVisible(false), 3500);
   }, []);
 
-  // runCountdown: drives the visual bar AND auto-submits when it hits 0
   const runCountdown = useCallback((remainingMs: number) => {
     if (animFrame.current) cancelAnimationFrame(animFrame.current);
     autoSubmittedRef.current = false;
@@ -95,7 +92,6 @@ export default function App() {
       if (remaining > 0) {
         animFrame.current = requestAnimationFrame(tick);
       } else {
-        // Countdown hit 0 — auto-submit whatever is currently typed
         if (!autoSubmittedRef.current) {
           autoSubmittedRef.current = true;
           const entry = answersRef.current;
@@ -129,7 +125,20 @@ export default function App() {
       if (data.countdownActive && data.remainingMs != null) {
         runCountdown(data.remainingMs);
       }
+      setJoinStatus("idle");
       setScreen("lobby");
+    });
+
+    socket.on("waiting_for_admin", () => {
+      setJoinStatus("waiting");
+    });
+
+    socket.on("join_denied", () => {
+      setJoinStatus("rejected");
+    });
+
+    socket.on("pending_join_request", (data: { requestId: string, username: string }) => {
+      setPendingRequests(prev => [...prev, data]);
     });
 
     socket.on("players_update", (p: Player[]) => setPlayers(p));
@@ -146,7 +155,6 @@ export default function App() {
       setGameStarted(true);
       setCurrentLetter(data.letter);
       setRoundNumber(data.roundNumber);
-      // Clear answers for new round
       setAnsName(""); setAnsPlace(""); setAnsThing(""); setAnsAnimal("");
       answersRef.current = { name: "", place: "", thing: "", animal: "" };
       setLockedEntries(null);
@@ -162,12 +170,10 @@ export default function App() {
       setCountdownActive(true);
       runCountdown(data.remainingMs);
       showNotif(`⏱ ${data.triggeredBy} finished! 7 seconds remaining!`);
-      // Immediately send whatever is typed so far — no button press needed
       const a = answersRef.current;
       socket.emit("submit_entry", { name: a.name, place: a.place, thing: a.thing, animal: a.animal });
     });
 
-    // Server asking all clients to send their current answers (fired at start + 5.5s)
     socket.on("request_submit_now", () => {
       const a = answersRef.current;
       socket.emit("submit_entry", { name: a.name, place: a.place, thing: a.thing, animal: a.animal });
@@ -179,8 +185,6 @@ export default function App() {
       if (animFrame.current) cancelAnimationFrame(animFrame.current);
       setCountdownPct(100);
 
-      // Merge local answers into our own entry if the server has blanks
-      // (happens when player typed but the auto-submit race-conditioned with server lock)
       const myEntry = answersRef.current;
       const merged = data.entries.map((e) => {
         if (e.playerId === myIdRef.current) {
@@ -222,7 +226,13 @@ export default function App() {
   const joinGame = () => {
     const name = nameInput.trim();
     if (!name) { showNotif("Please enter your name!"); return; }
+    setJoinStatus("idle");
     socketRef.current?.emit("join", name);
+  };
+
+  const handleJoinResponse = (requestId: string, decision: "accept" | "reject") => {
+    socketRef.current?.emit("admin_join_response", { requestId, decision });
+    setPendingRequests(prev => prev.filter(req => req.requestId !== requestId));
   };
 
   const guessAlphabet = () => {
@@ -237,7 +247,7 @@ export default function App() {
       setHasFinished(true);
     } else if (countdownActive) {
       socketRef.current?.emit("submit_entry", entry);
-      autoSubmittedRef.current = true; // prevent double-submit when countdown hits 0
+      autoSubmittedRef.current = true;
       setHasFinished(true);
     }
   };
@@ -254,7 +264,6 @@ export default function App() {
 
   const inputsLocked = (!roundActive && !countdownActive) || hasFinished;
   const canFinish = (roundActive || countdownActive) && !hasFinished;
-  const rankIcons = ["🥇", "🥈", "🥉"];
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
@@ -293,6 +302,7 @@ export default function App() {
         .btn-green { background: linear-gradient(135deg,#00aa55,#00ff88); color:#000; }
         .btn-gold { background: linear-gradient(135deg,#aa8800,#ffd700); color:#000; }
         .btn-purple { background: linear-gradient(135deg,#7a1fcc,#b44dff); color:#fff; }
+        .btn-red { background: linear-gradient(135deg,#cc1f33,#ff4466); color:#fff; }
         .card {
           background: var(--surface); border: 1px solid var(--border);
           border-radius: var(--radius); padding: 1.4rem 1.5rem; margin-bottom: 1.1rem;
@@ -340,7 +350,6 @@ export default function App() {
 
       <div className={`notif${notifVisible ? " show" : ""}`}>{notification}</div>
 
-      {/* ── JOIN SCREEN ── */}
       {screen === "join" && (
         <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "1.5rem 1rem" }}>
           <h1 style={{
@@ -405,9 +414,19 @@ export default function App() {
               <input type="text" placeholder="Enter your name..." maxLength={20}
                 value={nameInput} onChange={e => setNameInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && joinGame()} style={{ flex: 1 }}
+                disabled={joinStatus === "waiting"}
               />
-              <button className="btn-primary" onClick={joinGame}>Join</button>
+              <button className="btn-primary" onClick={joinGame} disabled={joinStatus === "waiting"}>
+                {joinStatus === "waiting" ? "Waiting..." : "Join"}
+              </button>
             </div>
+            
+            {joinStatus === "rejected" && (
+              <p style={{ color: "var(--red)", fontSize: "0.85rem", marginTop: "0.75rem", fontWeight: 700 }}>
+                ❌ Access Denied: The Admin rejected your request.
+              </p>
+            )}
+            
             <p style={{ color: "var(--text-dim)", fontSize: "0.75rem", marginTop: "0.75rem" }}>
               💡 The first player to join becomes the <span style={{ color: "var(--gold)", fontWeight: 700 }}>Admin</span> and can score each round.
             </p>
@@ -415,7 +434,6 @@ export default function App() {
         </div>
       )}
 
-      {/* ── LOBBY ── */}
       {screen === "lobby" && (
         <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 1rem 3rem" }}>
 
@@ -429,7 +447,23 @@ export default function App() {
             Real-time multiplayer word game
           </p>
 
-          {/* Players */}
+          {isAdmin && pendingRequests.length > 0 && (
+            <div className="card" style={{ border: "1px solid var(--gold)", boxShadow: "0 0 16px #aa880044" }}>
+              <div className="card-title" style={{ color: "var(--gold)", margin: 0, marginBottom: "0.8rem" }}>
+                🔔 Pending Join Requests
+              </div>
+              {pendingRequests.map(req => (
+                <div key={req.requestId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface2)", padding: "0.8rem 1rem", borderRadius: "8px", marginBottom: "0.5rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "0.9rem" }}><strong style={{ color: "var(--cyan)" }}>{req.username}</strong> wants to join.</span>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button className="btn-green" style={{ padding: "0.4rem 0.8rem" }} onClick={() => handleJoinResponse(req.requestId, "accept")}>Accept</button>
+                    <button className="btn-red" style={{ padding: "0.4rem 0.8rem" }} onClick={() => handleJoinResponse(req.requestId, "reject")}>Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="card">
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.9rem", flexWrap: "wrap" }}>
               <div className="card-title" style={{ margin: 0 }}>Players</div>
@@ -455,7 +489,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Game controls */}
           <div className="card" style={{ boxShadow: "0 0 16px #0098aa44" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
               <div>
@@ -496,7 +529,6 @@ export default function App() {
             )}
           </div>
 
-          {/* Answer inputs */}
           <div className="card">
             <div className="card-title">Your Answers — Letter: {currentLetter || "?"}</div>
             <table className="game-table">
@@ -528,7 +560,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* ── SCORING PANEL (ADMIN ONLY) ── */}
           {lockedEntries && isAdmin && (
             <div className="card" style={{ border: "1px solid var(--gold)", boxShadow: "0 0 20px #aa880044" }}>
               <div className="card-title" style={{ color: "var(--gold)" }}>
@@ -585,7 +616,6 @@ export default function App() {
             </div>
           )}
 
-          {/* ── NON-ADMIN: waiting notice ── */}
           {lockedEntries && !isAdmin && (
             <div className="card" style={{ border: "1px solid var(--border)", textAlign: "center" }}>
               <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>👑</div>
@@ -593,7 +623,6 @@ export default function App() {
               <div style={{ color: "var(--text-dim)", fontSize: "0.85rem" }}>
                 The admin is checking everyone's answers and entering scores. Hang tight!
               </div>
-              {/* Show the player their own answers so they can see what was captured */}
               {(() => {
                 const myEntry = lockedEntries.find(e => e.playerId === myId);
                 if (!myEntry) return null;
@@ -616,7 +645,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Leaderboard */}
           {leaderboard && (
             <div className="card">
               <div className="card-title">🏆 Final Leaderboard</div>
