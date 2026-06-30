@@ -1,4 +1,5 @@
 import path from "path";
+import fs from "fs";
 import express from "express";
 import { fileURLToPath } from "url";
 import app from "./app";
@@ -9,13 +10,12 @@ const __dirname = path.dirname(__filename);
 
 const port = Number(process.env.PORT) || 7860;
 
-const frontendPath = path.resolve(__dirname, "../../game/dist");
+let frontendPath = path.resolve(__dirname, "../../game/dist");
+if (!fs.existsSync(frontendPath)) {
+    frontendPath = path.resolve(__dirname, "../../../game/dist");
+}
 
 app.use(express.static(frontendPath));
-
-app.get("/healthz", (req, res) => {
-    res.status(200).send("OK");
-});
 
 app.use((req, res, next) => {
     if (req.path.startsWith('/api')) {
@@ -23,11 +23,12 @@ app.use((req, res, next) => {
     }
     
     const indexPath = path.join(frontendPath, "index.html");
-    res.sendFile(indexPath, (err) => {
-        if (err) {
-            res.status(200).send(`Server is live. Target path: ${frontendPath}`);
-        }
-    });
+    if (fs.existsSync(indexPath)) {
+        res.setHeader("Content-Type", "text/html");
+        fs.createReadStream(indexPath).pipe(res);
+    } else {
+        res.status(200).send("Server is live.");
+    }
 });
 
 const httpServer = setupSocketIO(app);
