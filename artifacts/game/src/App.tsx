@@ -242,6 +242,25 @@ export default function App() {
       showNotif("🔄 The Admin has reset the room.");
     });
 
+    socket.on("admin_room_reset", (data: { players: Player[] }) => {
+      setPlayers(data.players);
+      setCurrentLetter(null);
+      setRoundNumber(0);
+      setRoundActive(false);
+      setCountdownActive(false);
+      setHasFinished(false);
+      setGameStarted(false);
+      setLockedEntries(null);
+      setManualScores({});
+      setScoresSubmitted(false);
+      setLeaderboard(null);
+      setPendingRequests([]);
+      setAnsName(""); setAnsPlace(""); setAnsThing(""); setAnsAnimal("");
+      answersRef.current = { name: "", place: "", thing: "", animal: "" };
+      if (animFrame.current) cancelAnimationFrame(animFrame.current);
+      showNotif("🔄 Room reset successful. Lobby cleared!");
+    });
+
     socket.on("connect_error", () => showNotif("⚠️ Connection error. Retrying..."));
 
     return () => { socket.disconnect(); };
@@ -314,7 +333,7 @@ export default function App() {
           background: var(--surface2); border: 1px solid var(--border);
           border-radius: 6px; color: var(--cyan); font-size: 1rem;
           font-weight: 700; padding: 0.4rem 0.5rem; outline: none;
-          width: 70px; text-align: center;
+          width: 65px; text-align: center;
         }
         input[type=number]:focus { border-color: var(--purple); }
         button {
@@ -349,7 +368,7 @@ export default function App() {
         .chip-score { color: var(--cyan); font-weight: 700; font-size: 0.72rem; }
         .game-table { width: 100%; border-collapse: collapse; }
         .game-table th { background: var(--surface2); border: 1px solid var(--border); color: var(--cyan); font-size: 0.74rem; padding: 0.5rem 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; }
-        .game-table td { border: 1px solid var(--border); padding: 0.4rem 0.5rem; }
+        .game-table td { border: 1px solid var(--border); padding: 0.5rem 0.6rem; font-size: 0.92rem; }
         .game-table input[type=text] { border: none; background: transparent; padding: 0.25rem 0.3rem; border-radius: 0; }
         .game-table input[type=text]:focus { background: var(--surface2); border-radius: 4px; }
         .lb-item { display:flex; align-items:center; gap:1rem; background: var(--surface2); border: 1px solid var(--border); border-radius:10px; padding: 0.85rem 1.1rem; margin-bottom:0.55rem; }
@@ -364,14 +383,6 @@ export default function App() {
         .notif.show { transform: translateX(-50%) translateY(0); }
         .countdown-wrap { background: var(--surface2); border-radius: 999px; height: 9px; overflow: hidden; margin: 0.6rem 0; }
         .countdown-bar { height: 100%; background: linear-gradient(90deg,#ff4466,#b44dff); border-radius:999px; transition: width 0.1s linear; }
-        .score-row { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; margin-bottom: 0.75rem; }
-        .score-row.me { border-color: var(--purple); }
-        .answer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1rem; margin: 0.6rem 0 0.8rem; }
-        .answer-cell { font-size: 0.85rem; }
-        .answer-label { color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; }
-        .answer-value { color: var(--text); font-weight: 600; font-size: 0.92rem; }
-        .answer-value.empty { color: var(--text-dim); font-style: italic; font-weight: 400; }
-        .score-input-row { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
         .admin-badge { background: linear-gradient(135deg,#aa8800,#ffd700); color:#000; font-size:0.65rem; font-weight:800; padding:0.15rem 0.5rem; border-radius:999px; text-transform:uppercase; letter-spacing:0.06em; }
         @media(max-width:500px){ .answer-grid { grid-template-columns: 1fr; } }
       `}</style>
@@ -594,49 +605,62 @@ export default function App() {
           </div>
 
           {lockedEntries && isAdmin && (
-            <div className="card" style={{ border: "1px solid var(--gold)", boxShadow: "0 0 20px #aa880044" }}>
+            <div className="card" style={{ border: "1px solid var(--gold)", boxShadow: "0 0 20px #aa880044", overflowX: "auto" }}>
               <div className="card-title" style={{ color: "var(--gold)" }}>
-                👑 Admin Panel — Review Answers & Enter Scores
+                👑 Admin Panel — Review Answers Dashboard
               </div>
               <p style={{ color: "var(--text-dim)", fontSize: "0.8rem", marginBottom: "1rem" }}>
-                All players' answers are shown below. Check for validity and enter points for each player.
+                Review answers and directly key points into the scoreboard layout.
               </p>
 
-              {lockedEntries.map(({ playerId, playerName, entry }) => {
-                const isMe = playerId === myId;
-                return (
-                  <div key={playerId} className={`score-row${isMe ? " me" : ""}`}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem", flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 700, fontSize: "1rem" }}>{playerName}</span>
-                      {isMe && <span style={{ color: "var(--purple)", fontSize: "0.75rem" }}>(you)</span>}
-                      {entry.finishedFirst && <span style={{ background: "#00aa55", color: "#000", fontSize: "0.65rem", fontWeight: 800, padding: "0.1rem 0.45rem", borderRadius: "999px" }}>⚡ First</span>}
-                    </div>
-
-                    <div className="answer-grid">
-                      {(["name", "place", "thing", "animal"] as const).map(cat => (
-                        <div key={cat} className="answer-cell">
-                          <div className="answer-label">{cat}</div>
-                          <div className={`answer-value${!entry[cat] ? " empty" : ""}`}>
-                            {entry[cat] || "—"}
+              <table className="game-table">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>Name</th>
+                    <th>Place</th>
+                    <th>Thing</th>
+                    <th>Animal</th>
+                    <th>Score Panel</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lockedEntries.map(({ playerId, playerName, entry }) => {
+                    const isMe = playerId === myId;
+                    return (
+                      <tr key={playerId} style={{ background: isMe ? "var(--surface2)" : "transparent" }}>
+                        <td style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
+                          {playerName} {entry.finishedFirst && <span style={{ color: "var(--green)" }}>⚡</span>}
+                        </td>
+                        <td style={{ color: entry.name ? "var(--text)" : "var(--text-dim)", fontStyle: entry.name ? "normal" : "italic" }}>
+                          {entry.name || "—"}
+                        </td>
+                        <td style={{ color: entry.place ? "var(--text)" : "var(--text-dim)", fontStyle: entry.place ? "normal" : "italic" }}>
+                          {entry.place || "—"}
+                        </td>
+                        <td style={{ color: entry.thing ? "var(--text)" : "var(--text-dim)", fontStyle: entry.thing ? "normal" : "italic" }}>
+                          {entry.thing || "—"}
+                        </td>
+                        <td style={{ color: entry.animal ? "var(--text)" : "var(--text-dim)", fontStyle: entry.animal ? "normal" : "italic" }}>
+                          {entry.animal || "—"}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                            <input type="number" min={0} max={999} step={0.5}
+                              value={manualScores[playerId] ?? "0"}
+                              onChange={e => setManualScores(prev => ({ ...prev, [playerId]: e.target.value }))}
+                              disabled={scoresSubmitted}
+                            />
+                            <span style={{ color: "var(--cyan)", fontSize: "0.78rem" }}>pts</span>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-                    <div className="score-input-row">
-                      <span style={{ color: "var(--text-dim)", fontSize: "0.82rem" }}>Score:</span>
-                      <input type="number" min={0} max={999} step={0.5}
-                        value={manualScores[playerId] ?? "0"}
-                        onChange={e => setManualScores(prev => ({ ...prev, [playerId]: e.target.value }))}
-                        disabled={scoresSubmitted}
-                      />
-                      <span style={{ color: "var(--cyan)", fontSize: "0.8rem" }}>pts</span>
-                    </div>
-                  </div>
-                );
-              })}
-
-              <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "0.5rem" }}>
+              <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "1.25rem" }}>
                 <button className="btn-purple" onClick={applyScores} disabled={scoresSubmitted}>
                   {scoresSubmitted ? "✅ Scores Applied" : "💾 Apply Scores"}
                 </button>
