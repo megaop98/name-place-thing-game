@@ -216,7 +216,11 @@ export default function App() {
       showNotif("✅ Scores saved!");
     });
 
-    socket.on("show_leaderboard", (p: Player[]) => setLeaderboard(p));
+    socket.on("show_leaderboard", (p: Player[]) => {
+      setLeaderboard(p);
+      setLockedEntries(null); // This hides the big scoring table
+      window.scrollTo({ top: 0, behavior: "smooth" }); // Auto-scrolls to the top
+    });
 
     socket.on("room_reset", (data: { adminId: string, players: Player[] }) => {
       if (myIdRef.current === data.adminId) {
@@ -541,24 +545,32 @@ export default function App() {
                   {currentLetter || "?"}
                 </div>
                 <div style={{ color: "var(--text-dim)", fontSize: "0.82rem" }}>
-                  {roundNumber > 0 ? `Round ${roundNumber}` : 'Press "Guess Alphabet" to start'}
+                  {roundNumber > 0 ? `Round ${roundNumber}` : 'Waiting for Admin to control round...'}
                   {roundActive && !countdownActive && " — Fill in your answers!"}
                   {lockedEntries && !roundActive && (isAdmin ? " — Review & score below" : " — Waiting for admin to score")}
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <button className="btn-cyan" onClick={guessAlphabet} disabled={roundActive || countdownActive}>
-                  🎲 Guess Alphabet
-                </button>
-                <button className="btn-gold" onClick={showLeaderboard}>
-                  🏆 Final Leaderboard
-                </button>
-                {isAdmin && (
+              
+              {isAdmin ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <button className="btn-cyan" onClick={guessAlphabet} disabled={roundActive || countdownActive}>
+                    🎲 Guess Alphabet
+                  </button>
+                  <button className="btn-gold" onClick={showLeaderboard} disabled={roundActive || countdownActive}>
+                    🏆 Final Leaderboard
+                  </button>
                   <button className="btn-red" onClick={resetGame} style={{ marginTop: "0.25rem" }}>
                     🔄 Reset Room
                   </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
+                  <span style={{ color: "var(--text-dim)", fontSize: "0.85rem", fontStyle: "italic" }}>
+                    Admin controls the game flow.
+                  </span>
+                </div>
+              )}
+              
             </div>
 
             {countdownActive && (
@@ -604,7 +616,7 @@ export default function App() {
             </div>
           </div>
 
-          {lockedEntries && isAdmin && (
+          {lockedEntries && isAdmin && !leaderboard && (
             <div className="card" style={{ border: "1px solid var(--gold)", boxShadow: "0 0 20px #aa880044", overflowX: "auto" }}>
               <div className="card-title" style={{ color: "var(--gold)" }}>
                 👑 Admin Panel — Review Answers Dashboard
@@ -673,7 +685,7 @@ export default function App() {
             </div>
           )}
 
-          {lockedEntries && !isAdmin && (
+          {lockedEntries && !isAdmin && !leaderboard && (
             <div className="card" style={{ border: "1px solid var(--border)", textAlign: "center" }}>
               <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>👑</div>
               <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "0.4rem" }}>Round locked — Admin is reviewing</div>
@@ -703,7 +715,7 @@ export default function App() {
           )}
 
           {leaderboard && (
-            <div className="card">
+            <div className="card" style={{ border: "1px solid var(--gold)", boxShadow: "0 0 30px #aa880044" }}>
               <div className="card-title">🏆 Final Leaderboard</div>
               {leaderboard.map((p, i) => (
                 <div key={p.id} className={`lb-item${p.id === myId ? " lb-me" : ""}`}>
