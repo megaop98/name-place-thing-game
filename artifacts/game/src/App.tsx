@@ -314,7 +314,8 @@ export default function App() {
 
   const inputsLocked = (!roundActive && !countdownActive) || hasFinished;
   const canFinish = (roundActive || countdownActive) && !hasFinished;
-
+  const hasValidScores = leaderboard && leaderboard.length > 0 && leaderboard.some(p => p.score > 0);
+  
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       <style>{`
@@ -583,11 +584,17 @@ export default function App() {
               </div>
             )}
           </div>
-
-          {leaderboard ? (
+                    {hasValidScores ? (
             <div className="card" style={{ border: "1px solid var(--gold)", boxShadow: "0 0 30px #aa880044" }}>
-              <div className="card-title">🏆 Final Leaderboard</div>
-              {leaderboard.map((p, i) => (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <div className="card-title" style={{ margin: 0 }}>🏆 Final Leaderboard</div>
+                {isAdmin && (
+                  <button className="btn-cyan" style={{ padding: "0.4rem 0.8rem", fontSize: "0.8rem" }} onClick={() => setLeaderboard(null)}>
+                    ⬅️ Back to Board
+                  </button>
+                )}
+              </div>
+              {leaderboard!.map((p, i) => (
                 <div key={p.id} className={`lb-item${p.id === myId ? " lb-me" : ""}`}>
                   <div style={{
                     fontSize: "1.5rem", fontWeight: 900, minWidth: "2rem", textAlign: "center",
@@ -638,6 +645,8 @@ export default function App() {
 
               {lockedEntries && (
                 <div className="card" style={{ border: isAdmin ? "1px solid var(--gold)" : "1px solid var(--border)", boxShadow: isAdmin ? "0 0 20px #aa880044" : "0 0 16px #ffffff11", overflowX: "auto" }}>
+                  
+
                   <div className="card-title" style={{ color: isAdmin ? "var(--gold)" : "var(--cyan)" }}>
                     {isAdmin ? "👑 Admin Panel — Review Answers Dashboard" : "🔍 Review Dashboard — Waiting for Admin"}
                   </div>
@@ -676,22 +685,23 @@ export default function App() {
                             <td style={{ color: entry.animal ? "var(--text)" : "var(--text-dim)", fontStyle: entry.animal ? "normal" : "italic" }}>
                               {entry.animal || "—"}
                             </td>
-                            <td>
-                              {isAdmin ? (
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                                  <input type="number" min={0} max={999} step={0.5}
-                                    value={manualScores[playerId] ?? "0"}
-                                    onChange={e => setManualScores(prev => ({ ...prev, [playerId]: e.target.value }))}
-                                    disabled={scoresSubmitted}
-                                  />
-                                  <span style={{ color: "var(--cyan)", fontSize: "0.78rem" }}>pts</span>
-                                </div>
-                              ) : (
-                                <span style={{ color: "var(--text-dim)", fontSize: "0.85rem", fontStyle: "italic" }}>
-                                  Pending...
-                                </span>
-                              )}
-                            </td>
+                                                    <td>
+                          {isAdmin ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                              <input type="number" min={0} max={999} step={0.5}
+                                value={manualScores[playerId] ?? "0"}
+                                onChange={e => setManualScores(prev => ({ ...prev, [playerId]: e.target.value }))}
+                                disabled={scoresSubmitted}
+                              />
+                              <span style={{ color: "var(--cyan)", fontSize: "0.78rem" }}>pts</span>
+                            </div>
+                          ) : (
+                            <span style={{ color: "var(--text-dim)", fontSize: "0.85rem", fontStyle: "italic" }}>
+                              Pending...
+                            </span>
+                          )}
+                        </td>
+                            
                           </tr>
                         );
                       })}
