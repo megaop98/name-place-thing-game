@@ -234,23 +234,18 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
       io.emit("scores_applied", { players: getPublicPlayers() });
     });
 
-    socket.on("final_leaderboard", () => {
-      if (!state.players.has(socket.id)) return;
-      const sorted = getPublicPlayers().sort((a, b) => b.score - a.score);
-      io.emit("show_leaderboard", sorted);
-    });
-
     socket.on("reset_game", () => {
       if (socket.id !== state.adminId) return;
 
       if (countdownTimer) { clearTimeout(countdownTimer); countdownTimer = null; }
       if (submitRequestTimer) { clearTimeout(submitRequestTimer); submitRequestTimer = null; }
 
+      const adminPlayer = state.players.get(state.adminId);
+      
       state.players.clear();
       state.roundEntries.clear();
       state.pendingRequests.clear();
       state.recentLetters = [];
-      state.adminId = null;
       state.currentLetter = null;
       state.roundActive = false;
       state.countdownActive = false;
@@ -260,7 +255,15 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
       state.gameStarted = false;
       state.acceptEntriesUntil = 0;
 
-      io.emit("room_reset");
+      if (adminPlayer) {
+        adminPlayer.score = 0;
+        state.players.set(state.adminId, adminPlayer);
+      }
+
+      io.emit("room_reset", {
+        adminId: state.adminId,
+        players: getPublicPlayers()
+      });
     });
 
     socket.on("disconnect", () => {
