@@ -584,9 +584,10 @@ export default function App() {
               </div>
             )}
           </div>
-                    {hasValidScores ? (
+                          {leaderboard !== null ? (
             <div className="card" style={{ border: "1px solid var(--gold)", boxShadow: "0 0 30px #aa880044" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                
                 <div className="card-title" style={{ margin: 0 }}>🏆 Final Leaderboard</div>
                 {isAdmin && (
                   <button className="btn-cyan" style={{ padding: "0.4rem 0.8rem", fontSize: "0.8rem" }} onClick={() => setLeaderboard(null)}>
@@ -685,22 +686,24 @@ export default function App() {
                             <td style={{ color: entry.animal ? "var(--text)" : "var(--text-dim)", fontStyle: entry.animal ? "normal" : "italic" }}>
                               {entry.animal || "—"}
                             </td>
-                                                    <td>
-                          {isAdmin ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                              <input type="number" min={0} max={999} step={0.5}
-                                value={manualScores[playerId] ?? "0"}
-                                onChange={e => setManualScores(prev => ({ ...prev, [playerId]: e.target.value }))}
-                                disabled={scoresSubmitted}
-                              />
-                              <span style={{ color: "var(--cyan)", fontSize: "0.78rem" }}>pts</span>
-                            </div>
-                          ) : (
-                            <span style={{ color: "var(--text-dim)", fontSize: "0.85rem", fontStyle: "italic" }}>
-                              Pending...
-                            </span>
-                          )}
-                        </td>
+                                                                                <td>
+                              {isAdmin ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                                  <input type="number" min={0} max={999} step={0.5}
+                                    value={manualScores[playerId] ?? "0"}
+                                    onChange={e => setManualScores(prev => ({ ...prev, [playerId]: e.target.value }))}
+                                    disabled={scoresSubmitted}
+                                  />
+                                  <span style={{ color: "var(--cyan)", fontSize: "0.78rem" }}>pts</span>
+                                </div>
+                              ) : (
+                                <span style={{ color: scoresSubmitted ? "var(--green)" : "var(--text-dim)", fontSize: "0.85rem", fontStyle: "italic", fontWeight: scoresSubmitted ? 700 : "normal" }}>
+                                  {scoresSubmitted ? "✅ Scored!" : "Pending..."}
+                                </span>
+                              )}
+                            </td>
+                            
+                          
                             
                           </tr>
                         );
