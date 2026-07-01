@@ -240,6 +240,29 @@ export function setupSocketIO(app: Express): ReturnType<typeof createServer> {
       io.emit("show_leaderboard", sorted);
     });
 
+    socket.on("reset_game", () => {
+      if (socket.id !== state.adminId) return;
+
+      if (countdownTimer) { clearTimeout(countdownTimer); countdownTimer = null; }
+      if (submitRequestTimer) { clearTimeout(submitRequestTimer); submitRequestTimer = null; }
+
+      state.players.clear();
+      state.roundEntries.clear();
+      state.pendingRequests.clear();
+      state.recentLetters = [];
+      state.adminId = null;
+      state.currentLetter = null;
+      state.roundActive = false;
+      state.countdownActive = false;
+      state.countdownEndsAt = null;
+      state.roundNumber = 0;
+      state.firstFinisher = null;
+      state.gameStarted = false;
+      state.acceptEntriesUntil = 0;
+
+      io.emit("room_reset");
+    });
+
     socket.on("disconnect", () => {
       state.players.delete(socket.id);
       state.roundEntries.delete(socket.id);
