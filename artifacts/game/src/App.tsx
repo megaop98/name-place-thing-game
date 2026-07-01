@@ -218,47 +218,47 @@ export default function App() {
 
     socket.on("show_leaderboard", (p: Player[]) => setLeaderboard(p));
 
-    socket.on("room_reset", () => {
-      setScreen("join");
-      setMyId(null);
-      setPlayers([]);
-      setCurrentLetter(null);
-      setRoundNumber(0);
-      setRoundActive(false);
-      setCountdownActive(false);
-      setHasFinished(false);
-      setGameStarted(false);
-      setIsAdmin(false);
-      setAdminId(null);
-      setLockedEntries(null);
-      setManualScores({});
-      setScoresSubmitted(false);
-      setLeaderboard(null);
-      setJoinStatus("idle");
-      setPendingRequests([]);
-      setAnsName(""); setAnsPlace(""); setAnsThing(""); setAnsAnimal("");
-      answersRef.current = { name: "", place: "", thing: "", animal: "" };
-      if (animFrame.current) cancelAnimationFrame(animFrame.current);
-      showNotif("🔄 The Admin has reset the room.");
-    });
-
-    socket.on("admin_room_reset", (data: { players: Player[] }) => {
-      setPlayers(data.players);
-      setCurrentLetter(null);
-      setRoundNumber(0);
-      setRoundActive(false);
-      setCountdownActive(false);
-      setHasFinished(false);
-      setGameStarted(false);
-      setLockedEntries(null);
-      setManualScores({});
-      setScoresSubmitted(false);
-      setLeaderboard(null);
-      setPendingRequests([]);
-      setAnsName(""); setAnsPlace(""); setAnsThing(""); setAnsAnimal("");
-      answersRef.current = { name: "", place: "", thing: "", animal: "" };
-      if (animFrame.current) cancelAnimationFrame(animFrame.current);
-      showNotif("🔄 Room reset successful. Lobby cleared!");
+    socket.on("room_reset", (data: { adminId: string, players: Player[] }) => {
+      if (myIdRef.current === data.adminId) {
+        setPlayers(data.players);
+        setCurrentLetter(null);
+        setRoundNumber(0);
+        setRoundActive(false);
+        setCountdownActive(false);
+        setHasFinished(false);
+        setGameStarted(false);
+        setLockedEntries(null);
+        setManualScores({});
+        setScoresSubmitted(false);
+        setLeaderboard(null);
+        setPendingRequests([]);
+        setAnsName(""); setAnsPlace(""); setAnsThing(""); setAnsAnimal("");
+        answersRef.current = { name: "", place: "", thing: "", animal: "" };
+        if (animFrame.current) cancelAnimationFrame(animFrame.current);
+        showNotif("🔄 Room reset successful. Lobby cleared!");
+      } else {
+        setScreen("join");
+        setMyId(null);
+        setPlayers([]);
+        setCurrentLetter(null);
+        setRoundNumber(0);
+        setRoundActive(false);
+        setCountdownActive(false);
+        setHasFinished(false);
+        setGameStarted(false);
+        setIsAdmin(false);
+        setAdminId(null);
+        setLockedEntries(null);
+        setManualScores({});
+        setScoresSubmitted(false);
+        setLeaderboard(null);
+        setJoinStatus("idle");
+        setPendingRequests([]);
+        setAnsName(""); setAnsPlace(""); setAnsThing(""); setAnsAnimal("");
+        answersRef.current = { name: "", place: "", thing: "", animal: "" };
+        if (animFrame.current) cancelAnimationFrame(animFrame.current);
+        showNotif("🔄 The Admin has reset the room.");
+      }
     });
 
     socket.on("connect_error", () => showNotif("⚠️ Connection error. Retrying..."));
