@@ -218,6 +218,30 @@ export default function App() {
 
     socket.on("show_leaderboard", (p: Player[]) => setLeaderboard(p));
 
+    socket.on("room_reset", () => {
+      setScreen("join");
+      setMyId(null);
+      setPlayers([]);
+      setCurrentLetter(null);
+      setRoundNumber(0);
+      setRoundActive(false);
+      setCountdownActive(false);
+      setHasFinished(false);
+      setGameStarted(false);
+      setIsAdmin(false);
+      setAdminId(null);
+      setLockedEntries(null);
+      setManualScores({});
+      setScoresSubmitted(false);
+      setLeaderboard(null);
+      setJoinStatus("idle");
+      setPendingRequests([]);
+      setAnsName(""); setAnsPlace(""); setAnsThing(""); setAnsAnimal("");
+      answersRef.current = { name: "", place: "", thing: "", animal: "" };
+      if (animFrame.current) cancelAnimationFrame(animFrame.current);
+      showNotif("🔄 The Admin has reset the room.");
+    });
+
     socket.on("connect_error", () => showNotif("⚠️ Connection error. Retrying..."));
 
     return () => { socket.disconnect(); };
@@ -261,6 +285,10 @@ export default function App() {
   };
 
   const showLeaderboard = () => socketRef.current?.emit("final_leaderboard");
+
+  const resetGame = () => {
+    socketRef.current?.emit("reset_game");
+  };
 
   const inputsLocked = (!roundActive && !countdownActive) || hasFinished;
   const canFinish = (roundActive || countdownActive) && !hasFinished;
@@ -514,6 +542,11 @@ export default function App() {
                 <button className="btn-gold" onClick={showLeaderboard}>
                   🏆 Final Leaderboard
                 </button>
+                {isAdmin && (
+                  <button className="btn-red" onClick={resetGame} style={{ marginTop: "0.25rem" }}>
+                    🔄 Reset Room
+                  </button>
+                )}
               </div>
             </div>
 
