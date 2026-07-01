@@ -218,8 +218,7 @@ export default function App() {
 
     socket.on("show_leaderboard", (p: Player[]) => {
       setLeaderboard(p);
-      setLockedEntries(null); // This hides the big scoring table
-      window.scrollTo({ top: 0, behavior: "smooth" }); // Auto-scrolls to the top
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
     socket.on("room_reset", (data: { adminId: string, players: Player[] }) => {
@@ -585,136 +584,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="card">
-            <div className="card-title">Your Answers — Letter: {currentLetter || "?"}</div>
-            <table className="game-table">
-              <thead>
-                <tr><th>Name</th><th>Place</th><th>Thing</th><th>Animal</th></tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><input type="text" placeholder="Name..." maxLength={50} value={ansName}   onChange={e => updateAnsName(e.target.value)}   disabled={inputsLocked} /></td>
-                  <td><input type="text" placeholder="Place..." maxLength={50} value={ansPlace}  onChange={e => updateAnsPlace(e.target.value)}  disabled={inputsLocked} /></td>
-                  <td><input type="text" placeholder="Thing..." maxLength={50} value={ansThing}  onChange={e => updateAnsThing(e.target.value)}  disabled={inputsLocked} /></td>
-                  <td><input type="text" placeholder="Animal..." maxLength={50} value={ansAnimal} onChange={e => updateAnsAnimal(e.target.value) } disabled={inputsLocked} /></td>
-                </tr>
-              </tbody>
-            </table>
-            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "0.75rem", flexWrap: "wrap" }}>
-              <button className="btn-green" onClick={finishRow} disabled={!canFinish}>
-                {hasFinished ? "✅ Submitted" : countdownActive ? "⚡ Submit Now" : "✅ Finish Row"}
-              </button>
-              {hasFinished && !lockedEntries && (
-                <span style={{ color: "var(--text-dim)", fontSize: "0.82rem" }}>Waiting for round to end...</span>
-              )}
-              {countdownActive && !hasFinished && (
-                <span style={{ color: "var(--text-dim)", fontSize: "0.8rem" }}>Your answers save automatically when time runs out</span>
-              )}
-              {lockedEntries && (
-                <span style={{ color: "var(--red)", fontSize: "0.82rem", fontWeight: 700 }}>🔒 Round locked</span>
-              )}
-            </div>
-          </div>
-
-          {lockedEntries && isAdmin && !leaderboard && (
-            <div className="card" style={{ border: "1px solid var(--gold)", boxShadow: "0 0 20px #aa880044", overflowX: "auto" }}>
-              <div className="card-title" style={{ color: "var(--gold)" }}>
-                👑 Admin Panel — Review Answers Dashboard
-              </div>
-              <p style={{ color: "var(--text-dim)", fontSize: "0.8rem", marginBottom: "1rem" }}>
-                Review answers and directly key points into the scoreboard layout.
-              </p>
-
-              <table className="game-table">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    <th>Name</th>
-                    <th>Place</th>
-                    <th>Thing</th>
-                    <th>Animal</th>
-                    <th>Score Panel</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lockedEntries.map(({ playerId, playerName, entry }) => {
-                    const isMe = playerId === myId;
-                    return (
-                      <tr key={playerId} style={{ background: isMe ? "var(--surface2)" : "transparent" }}>
-                        <td style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
-                          {playerName} {entry.finishedFirst && <span style={{ color: "var(--green)" }}>⚡</span>}
-                        </td>
-                        <td style={{ color: entry.name ? "var(--text)" : "var(--text-dim)", fontStyle: entry.name ? "normal" : "italic" }}>
-                          {entry.name || "—"}
-                        </td>
-                        <td style={{ color: entry.place ? "var(--text)" : "var(--text-dim)", fontStyle: entry.place ? "normal" : "italic" }}>
-                          {entry.place || "—"}
-                        </td>
-                        <td style={{ color: entry.thing ? "var(--text)" : "var(--text-dim)", fontStyle: entry.thing ? "normal" : "italic" }}>
-                          {entry.thing || "—"}
-                        </td>
-                        <td style={{ color: entry.animal ? "var(--text)" : "var(--text-dim)", fontStyle: entry.animal ? "normal" : "italic" }}>
-                          {entry.animal || "—"}
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                            <input type="number" min={0} max={999} step={0.5}
-                              value={manualScores[playerId] ?? "0"}
-                              onChange={e => setManualScores(prev => ({ ...prev, [playerId]: e.target.value }))}
-                              disabled={scoresSubmitted}
-                            />
-                            <span style={{ color: "var(--cyan)", fontSize: "0.78rem" }}>pts</span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "1.25rem" }}>
-                <button className="btn-purple" onClick={applyScores} disabled={scoresSubmitted}>
-                  {scoresSubmitted ? "✅ Scores Applied" : "💾 Apply Scores"}
-                </button>
-                {scoresSubmitted && (
-                  <button className="btn-cyan" style={{ fontSize: "0.8rem" }} onClick={() => setScoresSubmitted(false)}>
-                    ✏️ Edit Scores
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {lockedEntries && !isAdmin && !leaderboard && (
-            <div className="card" style={{ border: "1px solid var(--border)", textAlign: "center" }}>
-              <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>👑</div>
-              <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "0.4rem" }}>Round locked — Admin is reviewing</div>
-              <div style={{ color: "var(--text-dim)", fontSize: "0.85rem" }}>
-                The admin is checking everyone's answers and entering scores. Hang tight!
-              </div>
-              {(() => {
-                const myEntry = lockedEntries.find(e => e.playerId === myId);
-                if (!myEntry) return null;
-                return (
-                  <div style={{ marginTop: "1rem", background: "var(--surface2)", borderRadius: "10px", padding: "0.9rem 1rem", textAlign: "left" }}>
-                    <div style={{ color: "var(--cyan)", fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.6rem" }}>Your captured answers</div>
-                    <div className="answer-grid">
-                      {(["name", "place", "thing", "animal"] as const).map(cat => (
-                        <div key={cat} className="answer-cell">
-                          <div className="answer-label">{cat}</div>
-                          <div className={`answer-value${!myEntry.entry[cat] ? " empty" : ""}`}>
-                            {myEntry.entry[cat] || "—"}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {leaderboard && (
+          {leaderboard ? (
             <div className="card" style={{ border: "1px solid var(--gold)", boxShadow: "0 0 30px #aa880044" }}>
               <div className="card-title">🏆 Final Leaderboard</div>
               {leaderboard.map((p, i) => (
@@ -733,9 +603,120 @@ export default function App() {
                 </div>
               ))}
             </div>
+          ) : (
+            <>
+              <div className="card">
+                <div className="card-title">Your Answers — Letter: {currentLetter || "?"}</div>
+                <table className="game-table">
+                  <thead>
+                    <tr><th>Name</th><th>Place</th><th>Thing</th><th>Animal</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><input type="text" placeholder="Name..." maxLength={50} value={ansName}   onChange={e => updateAnsName(e.target.value)}   disabled={inputsLocked} /></td>
+                      <td><input type="text" placeholder="Place..." maxLength={50} value={ansPlace}  onChange={e => updateAnsPlace(e.target.value)}  disabled={inputsLocked} /></td>
+                      <td><input type="text" placeholder="Thing..." maxLength={50} value={ansThing}  onChange={e => updateAnsThing(e.target.value)}  disabled={inputsLocked} /></td>
+                      <td><input type="text" placeholder="Animal..." maxLength={50} value={ansAnimal} onChange={e => updateAnsAnimal(e.target.value) } disabled={inputsLocked} /></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "0.75rem", flexWrap: "wrap" }}>
+                  <button className="btn-green" onClick={finishRow} disabled={!canFinish}>
+                    {hasFinished ? "✅ Submitted" : countdownActive ? "⚡ Submit Now" : "✅ Finish Row"}
+                  </button>
+                  {hasFinished && !lockedEntries && (
+                    <span style={{ color: "var(--text-dim)", fontSize: "0.82rem" }}>Waiting for round to end...</span>
+                  )}
+                  {countdownActive && !hasFinished && (
+                    <span style={{ color: "var(--text-dim)", fontSize: "0.8rem" }}>Your answers save automatically when time runs out</span>
+                  )}
+                  {lockedEntries && (
+                    <span style={{ color: "var(--red)", fontSize: "0.82rem", fontWeight: 700 }}>🔒 Round locked</span>
+                  )}
+                </div>
+              </div>
+
+              {lockedEntries && (
+                <div className="card" style={{ border: isAdmin ? "1px solid var(--gold)" : "1px solid var(--border)", boxShadow: isAdmin ? "0 0 20px #aa880044" : "0 0 16px #ffffff11", overflowX: "auto" }}>
+                  <div className="card-title" style={{ color: isAdmin ? "var(--gold)" : "var(--cyan)" }}>
+                    {isAdmin ? "👑 Admin Panel — Review Answers Dashboard" : "🔍 Review Dashboard — Waiting for Admin"}
+                  </div>
+                  <p style={{ color: "var(--text-dim)", fontSize: "0.8rem", marginBottom: "1rem" }}>
+                    {isAdmin ? "Review answers and directly key points into the scoreboard layout." : "Review what everyone wrote while the Admin scores the round."}
+                  </p>
+
+                  <table className="game-table">
+                    <thead>
+                      <tr>
+                        <th>Player</th>
+                        <th>Name</th>
+                        <th>Place</th>
+                        <th>Thing</th>
+                        <th>Animal</th>
+                        <th>Score Panel</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lockedEntries.map(({ playerId, playerName, entry }) => {
+                        const isMe = playerId === myId;
+                        return (
+                          <tr key={playerId} style={{ background: isMe ? "var(--surface2)" : "transparent" }}>
+                            <td style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
+                              {playerName} {entry.finishedFirst && <span style={{ color: "var(--green)" }}>⚡</span>}
+                            </td>
+                            <td style={{ color: entry.name ? "var(--text)" : "var(--text-dim)", fontStyle: entry.name ? "normal" : "italic" }}>
+                              {entry.name || "—"}
+                            </td>
+                            <td style={{ color: entry.place ? "var(--text)" : "var(--text-dim)", fontStyle: entry.place ? "normal" : "italic" }}>
+                              {entry.place || "—"}
+                            </td>
+                            <td style={{ color: entry.thing ? "var(--text)" : "var(--text-dim)", fontStyle: entry.thing ? "normal" : "italic" }}>
+                              {entry.thing || "—"}
+                            </td>
+                            <td style={{ color: entry.animal ? "var(--text)" : "var(--text-dim)", fontStyle: entry.animal ? "normal" : "italic" }}>
+                              {entry.animal || "—"}
+                            </td>
+                            <td>
+                              {isAdmin ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                                  <input type="number" min={0} max={999} step={0.5}
+                                    value={manualScores[playerId] ?? "0"}
+                                    onChange={e => setManualScores(prev => ({ ...prev, [playerId]: e.target.value }))}
+                                    disabled={scoresSubmitted}
+                                  />
+                                  <span style={{ color: "var(--cyan)", fontSize: "0.78rem" }}>pts</span>
+                                </div>
+                              ) : (
+                                <span style={{ color: "var(--text-dim)", fontSize: "0.85rem", fontStyle: "italic" }}>
+                                  Pending...
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {isAdmin && (
+                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "1.25rem" }}>
+                      <button className="btn-purple" onClick={applyScores} disabled={scoresSubmitted}>
+                        {scoresSubmitted ? "✅ Scores Applied" : "💾 Apply Scores"}
+                      </button>
+                      {scoresSubmitted && (
+                        <button className="btn-cyan" style={{ fontSize: "0.8rem" }} onClick={() => setScoresSubmitted(false)}>
+                          ✏️ Edit Scores
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
     </div>
   );
 }
+      
