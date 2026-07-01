@@ -9,7 +9,6 @@ pinned: false
 ---
 
 # 🎮 Real-Time Multiplayer: Name, Place, Thing, Animal
-# 🎮 Real-Time Multiplayer: Name, Place, Thing, Animal
 
 A modern, web-based, real-time multiplayer adaptation of the classic childhood word game. Built using a decoupled React-Node client-server architecture, this application supports strict role-based state management across multiple concurrent clients using persistent WebSockets.
 
@@ -49,10 +48,7 @@ While traditional hosting platforms impose strict limitations on network operati
 
 Prerequisites: Node.js and pnpm installed locally.
 
-1. Clone the repository:
-   ```bash
-   git clone [https://github.com/megaop98/name-place-thing-game.git](https://github.com/megaop98/name-place-thing-game.git)
-   cd name-place-thing-game
+
 1. Clone the repository:
    ```bash
    git clone [https://github.com/megaop98/name-place-thing-game.git](https://github.com/megaop98/name-place-thing-game.git)
